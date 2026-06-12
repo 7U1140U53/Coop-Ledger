@@ -274,13 +274,15 @@ async function executeAjoEnginePipeline() {
 }
 
 // ==========================================================
-// 7. MULTI-PANEL VIEW INTERACTORS (SHINE YOUR EYE FIX)
+// 7. MULTI-PANEL VIEW INTERACTORS (ANTI-DOUBLE DEPOSIT UPGRADE)
 // ==========================================================
 async function renderInterfacePanels() {
     const mPanel = document.getElementById('member-panel');
     const txAmountInput = document.getElementById('tx-amount');
     const depositForm = document.getElementById('deposit-form');
     const depositStatusWrapper = document.getElementById('deposit-status-wrapper');
+    const txRefInput = document.getElementById('tx-ref');
+    const txBankInput = document.getElementById('tx-bank');
 
     if (txAmountInput) {
         txAmountInput.value = `₦ ${(state.currentGroup.contributionAmount || 0).toLocaleString()}`;
@@ -364,9 +366,17 @@ async function renderInterfacePanels() {
             `;
         }
 
-        // FIXED: We don't hide the deposit form anymore! Form stays operational and visible below the receipt.
+        // 🔒 LOCK ENGINE: Form stays open/visible below receipt, but inputs and submit button freeze hard
         if (depositForm) {
             depositForm.classList.remove('hidden');
+            const submitBtn = depositForm.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerText = "🔒 Deposit Locked For This Round";
+                submitBtn.className = "w-full bg-slate-800 text-slate-500 font-mono text-xs font-bold py-2.5 px-4 rounded-xl border border-slate-700 cursor-not-allowed transition";
+            }
+            if (txRefInput) txRefInput.disabled = true;
+            if (txBankInput) txBankInput.disabled = true;
         }
 
     } else {
@@ -382,7 +392,17 @@ async function renderInterfacePanels() {
             `;
         }
         if (depositStatusWrapper) depositStatusWrapper.innerHTML = '';
-        if (depositForm) depositForm.classList.remove('hidden');
+        if (depositForm) {
+            depositForm.classList.remove('hidden');
+            const submitBtn = depositForm.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Dispatch Deposit Log";
+                submitBtn.className = "w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition shadow-md shadow-emerald-900/10";
+            }
+            if (txRefInput) { txRefInput.disabled = false; txRefInput.value = ''; }
+            if (txBankInput) txBankInput.disabled = false;
+        }
     }
 }
 
@@ -610,6 +630,9 @@ async function handleRegister() {
     alert("Account setup complete! Logging in...");
 }
 
+// ==========================================================
+// 12. UTILITIES & WIZARDS
+// ==========================================================
 function setupPasswordToggle() {
     const toggleBtn = document.getElementById('toggle-password');
     const passInput = document.getElementById('auth-password');
