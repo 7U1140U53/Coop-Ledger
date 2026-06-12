@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoreLedger Co-op — Admin Terminal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased">
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto p-6 space-y-8">
+
+        <!-- Header Section -->
+        <header class="flex justify-between items-center border-b border-slate-800 pb-5">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight">Admin Clearing Feed</h1>
+                <p class="text-sm text-slate-400 mt-1">Cross-reference incoming transfers with your bank mobile
+                    application alerts.</p>
+            </div>
+            <div
+                class="flex items-center space-x-2 text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-full">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Treasurer Access Authenticated</span>
+            </div>
+        </header>
+
+        <!-- 1. VISUAL METRICS BAR (Color-Coded Status Cards) -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <!-- Total Approved Pool (Green) -->
+            <div class="bg-slate-800/50 border border-slate-800 rounded-xl p-5 shadow-sm">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Approved Pool</p>
+                <p id="metric-approved" class="text-3xl font-bold text-emerald-400 mt-2">₦0.00</p>
+            </div>
+            <!-- Pipeline Capital (Amber) -->
+            <div class="bg-slate-800/50 border border-slate-800 rounded-xl p-5 shadow-sm">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Pipeline Inflows (Pending)</p>
+                <p id="metric-pending" class="text-3xl font-bold text-amber-400 mt-2">₦0.00</p>
+            </div>
+            <!-- Flagged/Arrears Pool (Red) -->
+            <div class="bg-slate-800/50 border border-slate-800 rounded-xl p-5 shadow-sm">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Flagged Exceptions</p>
+                <p id="metric-flagged" class="text-3xl font-bold text-rose-400 mt-2">₦0.00</p>
+            </div>
+        </section>
+
+        <!-- 2. HIGH-SCANNABLE CLEARING FEED -->
+        <section class="bg-slate-800/40 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+            <div class="p-5 border-b border-slate-800 bg-slate-800/30 flex justify-between items-center">
+                <h2 class="font-semibold text-slate-200">Awaiting Bank Reconciliation</h2>
+                <span id="queue-count"
+                    class="text-xs font-medium px-2.5 py-0.5 bg-slate-700 text-slate-300 rounded-full">0 entries</span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr
+                            class="text-xs font-semibold uppercase tracking-wider text-slate-400 bg-slate-800/20 border-b border-slate-800">
+                            <th class="p-4">Member Info</th>
+                            <th class="p-4">Cycle Target</th>
+                            <th class="p-4 text-right">Amount</th>
+                            <th class="p-4">Transfer Metadata</th>
+                            <th class="p-4 text-center">Receipt</th>
+                            <th class="p-4 text-right">Verification Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clearing-feed-rows" class="divide-y divide-slate-800/60">
+                        <!-- Native JS Injection Target -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal Component for Appending Reason on Flagging Event -->
+    <div id="flag-modal"
+        class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+        <div
+            class="bg-slate-800 border border-slate-700 max-w-md w-full rounded-xl p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div>
+                <h3 class="text-lg font-bold text-slate-100">Flag Ledger Exception</h3>
+                <p class="text-xs text-slate-400 mt-1">Provide a brief clarification context. The input fields will
+                    unlock on the member's terminal for remediation.</p>
+            </div>
+            <textarea id="flag-reason-input" rows="3"
+                placeholder="e.g., Transfer alert not found in bank log, or transaction amount mismatched..."
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-rose-500 placeholder-slate-500 resize-none"></textarea>
+            <div class="flex justify-end space-x-3 text-sm font-semibold">
+                <button id="modal-cancel-btn"
+                    class="px-4 py-2 text-slate-400 hover:text-slate-200 transition">Cancel</button>
+                <button id="modal-confirm-btn"
+                    class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg transition shadow-md shadow-rose-900/20">Confirm
+                    Exception Flag</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Module Initialization -->
+    <script type="module" src="./app.js"></script>
+</body>
+
+</html>

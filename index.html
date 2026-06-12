@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100 selection:bg-emerald-500/30">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coop Ledger // Cooperative Framework</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body class="h-full font-sans antialiased text-sm">
+
+    <div id="app-loading-screen"
+        class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 transition-opacity duration-300">
+        <div class="h-8 w-8 animate-spin rounded-full border-2 border-slate-800 border-t-emerald-500"></div>
+        <p class="mt-4 text-xs font-mono text-slate-500 tracking-wider uppercase">Loading Ledger State...</p>
+    </div>
+
+    <div id="auth-view" class="hidden min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8 px-4">
+        <div class="sm:mx-auto sm:w-full sm:max-w-md text-center">
+            <span
+                class="text-xs font-mono px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-widest">Secure
+                Gateway</span>
+            <h2 class="mt-4 text-2xl font-black text-white tracking-tight">Coop Ledger Platform</h2>
+            <p class="mt-1.5 text-xs text-slate-400">Access decentralized peer-to-peer tracking circles.</p>
+        </div>
+
+        <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+            <div class="bg-slate-900 border border-slate-800/80 px-6 py-8 rounded-2xl shadow-xl space-y-5">
+                <div>
+                    <label for="auth-email"
+                        class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-2">Email
+                        Handle</label>
+                    <input id="auth-email" type="email" autocomplete="email" required
+                        class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-emerald-500/50 transition font-mono text-xs">
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label for="auth-password"
+                            class="block text-xs font-mono text-slate-400 uppercase tracking-wider">Access Token</label>
+                        <button id="toggle-password" type="button"
+                            class="text-[10px] font-bold text-slate-500 hover:text-slate-300 transition uppercase tracking-wider">Show</button>
+                    </div>
+                    <input id="auth-password" type="password" required
+                        class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-emerald-500/50 transition font-mono text-xs">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <button id="btn-login" type="button"
+                        class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl transition text-xs shadow-md shadow-emerald-900/20">
+                        Sign In
+                    </button>
+                    <button id="btn-register" type="button"
+                        class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2 px-4 rounded-xl transition text-xs border border-slate-700">
+                        Register Account
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboard-view" class="hidden min-h-full flex flex-col">
+        <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 sticky top-0 z-40 backdrop-blur bg-opacity-95">
+            <div class="max-w-7xl mx-auto flex justify-between items-center">
+                <div class="flex items-center gap-2.5">
+                    <div
+                        class="h-6 w-6 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-slate-950 text-xs">
+                        C</div>
+                    <h1 class="text-xs font-mono font-bold tracking-wider text-white uppercase">Coop Ledger //
+                        Management Desk</h1>
+                </div>
+                <div id="auth-status-badge" class="flex items-center">
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 max-w-7xl w-full mx-auto p-4 space-y-6">
+
+            <section id="global-circles-hub" class="hidden space-y-3">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h3 class="text-xs font-mono text-slate-400 uppercase tracking-wider">Active Cooperative Circles
+                        </h3>
+                        <p class="text-[11px] text-slate-500">Isolate your view workspace context instantly.</p>
+                    </div>
+                    <button onclick="handleCreateGroupWizard()"
+                        class="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-emerald-400 hover:text-emerald-300 font-mono text-[10px] font-bold py-1.5 px-3 rounded-lg transition uppercase tracking-wider">
+                        + New Circle Agenda
+                    </button>
+                </div>
+
+                <div id="circles-directory-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                </div>
+            </section>
+
+            <div id="global-ajo-banner">
+            </div>
+
+            <div
+                class="bg-slate-950 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl flex flex-col min-h-[400px]">
+                <div class="bg-slate-900/50 border-b border-slate-800 p-2 flex gap-1 items-center overflow-x-auto">
+                    <button id="tab-overview" onclick="switchSubView('overview')"
+                        class="tab-btn px-4 py-1.5 rounded-lg text-xs font-bold font-mono uppercase tracking-wider transition">
+                        📊 Circle Overview
+                    </button>
+                    <button id="tab-deposit" onclick="switchSubView('deposit')"
+                        class="tab-btn px-4 py-1.5 rounded-lg text-xs font-bold font-mono uppercase tracking-wider transition">
+                        💰 Submit Deposit
+                    </button>
+                    <button id="tab-audit" onclick="switchSubView('audit')"
+                        class="tab-btn px-4 py-1.5 rounded-lg text-xs font-bold font-mono uppercase tracking-wider transition hidden">
+                        🛡️ Treasurer Desk
+                    </button>
+                </div>
+
+                <div id="view-overview" class="sub-view p-6 space-y-6">
+                    <div class="border-b border-slate-900 pb-4">
+                        <h2 id="display-group-name" class="text-xl font-black text-white tracking-tight">--</h2>
+                        <p id="display-group-desc" class="text-xs text-slate-400 mt-1 max-w-2xl">--</p>
+                    </div>
+
+                    <div id="member-panel" class="w-full">
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-900 max-w-md">
+                        <h4 class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-2.5">Personal Identity
+                            Ledger Profile</h4>
+                        <div class="flex gap-2">
+                            <input id="settings-profile-name" type="text" placeholder="Full Account Name"
+                                class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-white focus:outline-none focus:border-emerald-500/50 transition font-mono text-xs">
+                            <button id="btn-save-profile"
+                                class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-700 transition shrink-0">
+                                Sync Identity
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-deposit" class="sub-view p-6 hidden max-w-xl mx-auto w-full space-y-6">
+                    <div class="text-center space-y-1">
+                        <h3 class="text-base font-bold text-white">Record Safe Contribution</h3>
+                        <p class="text-xs text-slate-400">File your bank wire transaction token details securely into
+                            the audit ledger.</p>
+                    </div>
+
+                    <div id="deposit-status-wrapper"></div>
+
+                    <form id="deposit-form"
+                        class="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-4 shadow-inner">
+                        <div>
+                            <label
+                                class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5">Contribution
+                                Target Value</label>
+                            <input id="tx-amount" type="text" readonly disabled
+                                class="w-full bg-slate-950 border border-slate-800 text-slate-500 rounded-xl px-3 py-2 font-mono text-xs focus:outline-none select-none">
+                        </div>
+
+                        <div>
+                            <label for="tx-bank"
+                                class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5">Receiving
+                                Bank Node</label>
+                            <select id="tx-bank"
+                                class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl px-3 py-2 font-mono text-xs focus:outline-none focus:border-emerald-500/50">
+                                <option value="Access Bank">Access Bank PLC</option>
+                                <option value="GTBank">Guaranty Trust Bank</option>
+                                <option value="Zenith Bank">Zenith Bank PLC</option>
+                                <option value="United Bank for Africa">United Bank For Africa</option>
+                                <option value="Kuda Bank">Kuda Microfinance</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="tx-ref"
+                                class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5">Transaction
+                                Reference / Session ID</label>
+                            <input id="tx-ref" type="text" placeholder="Paste structural reference sequence string"
+                                required
+                                class="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 font-mono text-xs focus:outline-none focus:border-emerald-500/50 transition">
+                        </div>
+
+                        <button type="submit"
+                            class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition shadow-md shadow-emerald-900/10">
+                            Dispatch Deposit Log
+                        </button>
+                    </form>
+                </div>
+
+                <div id="view-audit" class="sub-view p-6 hidden space-y-8">
+
+                    <div class="space-y-3">
+                        <div>
+                            <h3 class="text-xs font-mono text-slate-400 uppercase tracking-wider">Clearinghouse
+                                Verification Desk</h3>
+                            <p class="text-[11px] text-slate-500">Cross-examine member ledger submission wire tokens and
+                                approve pools.</p>
+                        </div>
+
+                        <div class="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/20">
+                            <table class="w-full text-left border-collapse">
+                                <thead
+                                    class="bg-slate-900/80 border-b border-slate-800 text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                                    <tr>
+                                        <th class="p-3">Logged</th>
+                                        <th class="p-3">Depositor Account</th>
+                                        <th class="p-3">Reference/Asset Details</th>
+                                        <th class="p-3 text-right">Action Desk</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="audit-feed-rows">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="treasurer-settings-block" class="hidden pt-6 border-t border-slate-900 space-y-4 max-w-xl">
+                        <div>
+                            <h3 class="text-xs font-mono text-slate-400 uppercase tracking-wider">Circle Configuration
+                                Panel</h3>
+                            <p class="text-[11px] text-slate-500">Modify properties of this active circle tracking
+                                ledger.</p>
+                        </div>
+
+                        <div id="group-config-panel"
+                            class="bg-slate-900/40 border border-slate-800 p-4 rounded-xl space-y-4">
+                            <div>
+                                <label for="edit-group-name"
+                                    class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-1">Circle
+                                    Name Title</label>
+                                <input id="edit-group-name" type="text"
+                                    class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-white font-mono text-xs focus:outline-none">
+                            </div>
+
+                            <div>
+                                <label for="edit-group-amount"
+                                    class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-1">Target
+                                    Cycle Goal (₦)</label>
+                                <input id="edit-group-amount" type="number"
+                                    class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-white font-mono text-xs focus:outline-none">
+                            </div>
+
+                            <div>
+                                <label for="edit-group-desc"
+                                    class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-1">Core
+                                    Guidelines Description</label>
+                                <textarea id="edit-group-desc" rows="2"
+                                    class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-white font-mono text-xs focus:outline-none resize-none"></textarea>
+                            </div>
+
+                            <div class="flex gap-2 pt-1">
+                                <button id="btn-save-group-config"
+                                    class="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white font-mono text-[10px] font-bold py-1.5 px-3 rounded-lg border border-emerald-500/20 transition uppercase tracking-wider">
+                                    Commit Metric Parameters
+                                </button>
+                                <button id="btn-copy-invite" type="button"
+                                    class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-[10px] font-bold py-1.5 px-3 rounded-lg border border-slate-700 transition uppercase tracking-wider">
+                                    📋 Copy Share Link
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,554 @@
+/**
+ * CoreLedger Co-op — Unified Terminal Control Engine
+ * Production Architecture: 100% Cloud-Synchronized Operational Data Pipeline
+ */
+
+// Initialize Supabase Client Connection
+const SUPABASE_URL = "https://hylzqoaymdwmureerflp.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_rjSJEJ3vRFdplomuyOrpuA_ouSv-86K";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Viewport State Routing Engine
+function navigateTo(screenId) {
+    const screens = ['screen-landing', 'screen-auth', 'screen-dashboard', 'screen-register'];
+
+    screens.forEach(screen => {
+        const element = document.getElementById(screen);
+        if (element) {
+            if (screen === screenId) {
+                element.classList.remove('hidden');
+            } else {
+                element.classList.add('hidden');
+            }
+        }
+    });
+}
+
+// 1. LIVE PRODUCTION STATE DESCRIPTOR 
+let state = {
+    currentUser: {
+        email: "",
+        fullName: "",
+        membershipId: "",
+        role: "MEMBER"
+    },
+    approvedPool: 0.00,
+    pipelinePending: 0.00,
+    flaggedExceptions: 0.00
+};
+
+// Target transactional variable tracker for tracking active modal states
+let activeTargetTxId = null;
+
+// Helper function to fetch user profile metadata from Supabase database safely
+async function fetchProfileAndSynchronize(user) {
+    try {
+        const { data: profile, error } = await supabaseClient
+            .from('profiles')
+            .select('full_name, membership_id, role')
+            .eq('id', user.id)
+            .single();
+
+        if (error && error.code !== 'PGRST116') throw error;
+
+        state.currentUser = {
+            email: user.email,
+            fullName: profile?.full_name || user.email.split('@')[0],
+            membershipId: profile?.membership_id || "COOP-2026-UNKNOWN",
+            role: profile?.role || 'MEMBER'
+        };
+    } catch (err) {
+        console.error("Profile synchronization layout crashed:", err);
+        state.currentUser = {
+            email: user.email,
+            fullName: user.email.split('@')[0],
+            membershipId: "COOP-2026-UNKNOWN",
+            role: 'MEMBER'
+        };
+    }
+}
+
+// 2. CONTEXTUAL ROUTER ENGINE (Determines View Permissions)
+function initializeAppRouting() {
+    const isTreasurer = state.currentUser.role === 'TREASURER';
+
+    const userContextText = document.getElementById('user-context-text');
+    const roleStatusDot = document.getElementById('role-status-dot');
+
+    if (isTreasurer) {
+        userContextText.innerHTML = `Logged in as <strong>${state.currentUser.fullName}</strong>. <button id="view-toggle-link" class="text-indigo-400 hover:underline font-semibold ml-2">Switch to My Member Deposit Form →</button>`;
+        roleStatusDot.className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
+
+        document.getElementById('prd-treasurer-interface').classList.remove('hidden');
+        document.getElementById('prd-member-interface').classList.add('hidden');
+
+        // Re-bind interactive quick-switch listener safely
+        const viewToggleLink = document.getElementById('view-toggle-link');
+        if (viewToggleLink) {
+            viewToggleLink.addEventListener('click', toggleTreasurerHats);
+        }
+    } else {
+        userContextText.innerHTML = `Logged in as Member: <strong>${state.currentUser.fullName}</strong> (${state.currentUser.membershipId})`;
+        roleStatusDot.className = "w-2 h-2 rounded-full bg-indigo-400";
+
+        document.getElementById('prd-treasurer-interface').classList.add('hidden');
+        document.getElementById('prd-member-interface').classList.remove('hidden');
+    }
+
+    // Fire master live data aggregation loop
+    fetchAndRenderLedgerData();
+}
+
+// Interactive utility letting the Treasurer jump frames to pay their own contributions
+function toggleTreasurerHats() {
+    const memberInterface = document.getElementById('prd-member-interface');
+    const toggleLink = document.getElementById('view-toggle-link');
+
+    if (memberInterface.classList.contains('hidden')) {
+        memberInterface.classList.remove('hidden');
+        toggleLink.textContent = "← Return to Admin Clearing Feed";
+    } else {
+        memberInterface.classList.add('hidden');
+        toggleLink.textContent = "Switch to My Member Deposit Form →";
+    }
+}
+
+// 3 & 4. LIVE AGGREGATION & RECONCILIATION DATA ENGINE
+async function fetchAndRenderLedgerData() {
+    const tbody = document.getElementById('clearing-feed-rows');
+    const queueCountBadge = document.getElementById('queue-count');
+    const nairaFormat = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' });
+
+    try {
+        // Query ALL entries in the cloud ledger pipeline to compute global metrics
+        const { data: contributions, error } = await supabaseClient
+            .from('contributions')
+            .select('*');
+
+        if (error) throw error;
+
+        // Reset and calculate mathematical metrics live from real database states
+        let approvedSum = 0;
+        let pendingSum = 0;
+        let flaggedSum = 0;
+
+        contributions.forEach(tx => {
+            const amount = parseFloat(tx.amount) || 0;
+            if (tx.status === 'APPROVED') approvedSum += amount;
+            else if (tx.status === 'PENDING') pendingSum += amount;
+            else if (tx.status === 'FLAGGED') flaggedSum += amount;
+        });
+
+        // Sync local memory state
+        state.approvedPool = approvedSum;
+        state.pipelinePending = pendingSum;
+        state.flaggedExceptions = flaggedSum;
+
+        // Render counters instantly to structural layout dashboard blocks
+        document.getElementById('metric-approved').textContent = nairaFormat.format(approvedSum);
+        document.getElementById('metric-pending').textContent = nairaFormat.format(pendingSum);
+        document.getElementById('metric-flagged').textContent = nairaFormat.format(flaggedSum);
+
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        // Filter the pipeline stream to find entries awaiting clearing verification
+        const pendingTransactions = contributions.filter(tx => tx.status === 'PENDING');
+
+        if (queueCountBadge) {
+            queueCountBadge.textContent = `${pendingTransactions.length} entries remaining`;
+        }
+
+        if (pendingTransactions.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="p-8 text-center text-xs text-slate-500 font-medium tracking-wide">
+                        🎉 All pipeline inflows perfectly reconciled!
+                    </td>
+                </tr>`;
+            return;
+        }
+
+        // Render active records with text breaking for long banking references
+        pendingTransactions.forEach(tx => {
+            const row = document.createElement('tr');
+            row.className = "text-xs hover:bg-slate-800/20 transition duration-150 border-b border-slate-800/40";
+            row.id = `row-${tx.id}`;
+
+            row.innerHTML = `
+                <td class="p-4">
+                    <p class="font-bold text-slate-200">${tx.account_name || 'Co-op Account'}</p>
+                    <p class="text-[10px] text-slate-500 font-mono mt-0.5">ID: ${tx.user_id ? tx.user_id.substring(0, 8) : 'SYSTEM'}</p>
+                </td>
+                <td class="p-4 text-slate-300 font-medium">${tx.cycle_target}</td>
+                <td class="p-4 text-right font-bold text-slate-100">${nairaFormat.format(tx.amount)}</td>
+                <td class="p-4 font-mono text-[11px] space-y-0.5 max-w-[200px]">
+                    <p class="text-slate-300 font-semibold truncate">${tx.bank_name}</p>
+                    <p class="text-slate-500 break-all select-all">${tx.reference_number}</p>
+                </td>
+                <td class="p-4 text-center">
+                    <span class="inline-flex items-center space-x-1 px-2 py-1 bg-slate-800 border border-slate-700 rounded text-[10px] font-mono text-slate-400">
+                        <span class="truncate max-w-[100px]">${tx.receipt_file_path || 'receipt.png'}</span>
+                    </span>
+                </td>
+                <td class="p-4 text-right space-x-2 whitespace-nowrap">
+                    <button data-id="${tx.id}" data-action="flag" class="px-3 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 hover:border-rose-700 text-rose-300 font-bold rounded-lg transition text-[11px]">
+                        Flag Fault
+                    </button>
+                    <button data-id="${tx.id}" data-action="approve" class="px-3 py-1.5 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/50 hover:border-emerald-700 text-emerald-300 font-bold rounded-lg transition text-[11px]">
+                        Approve Match
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+
+    } catch (err) {
+        console.error("Cloud synchronization query execution failure:", err);
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-xs text-rose-400">Database communication error: ${err.message}</td></tr>`;
+        }
+    }
+}
+
+// 5. SECURE ACTION RESOLUTION EVENT HANDLERS (Database Mutations)
+document.addEventListener('click', async function (event) {
+    const target = event.target;
+
+    // --- GLOBAL PASSWORD TOGGLE HANDLE ---
+    if (target && target.classList.contains('password-toggle-btn')) {
+        const passwordInput = target.previousElementSibling;
+        if (passwordInput) {
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                target.textContent = 'Hide';
+            } else {
+                passwordInput.type = 'password';
+                target.textContent = 'Show';
+            }
+        }
+        return;
+    }
+
+    const txId = target.getAttribute('data-id');
+    const action = target.getAttribute('data-action');
+    if (!txId || !action) return;
+
+    if (action === 'approve') {
+        // Implement input locking to guard against multi-click race states
+        const originalText = target.textContent;
+        target.disabled = true;
+        target.textContent = "Processing...";
+
+        try {
+            const { error } = await supabaseClient
+                .from('contributions')
+                .update({ status: 'APPROVED' })
+                .eq('id', txId);
+
+            if (error) throw error;
+
+            // Instantly sync metrics and UI table rows
+            await fetchAndRenderLedgerData();
+
+        } catch (err) {
+            console.error("Cloud mutation approval rejected:", err);
+            alert(`Approval failed: ${err.message}`);
+            target.disabled = false;
+            target.textContent = originalText;
+        }
+    }
+    else if (action === 'flag') {
+        activeTargetTxId = txId;
+        document.getElementById('flag-reason-input').value = '';
+        document.getElementById('flag-modal').classList.remove('hidden');
+    }
+});
+
+// Modal Exception Confirmation Management
+document.getElementById('modal-confirm-btn').addEventListener('click', async function () {
+    if (!activeTargetTxId) return;
+
+    const confirmBtn = document.getElementById('modal-confirm-btn');
+    const reason = document.getElementById('flag-reason-input').value.trim();
+
+    const originalText = confirmBtn.textContent;
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "Flagging...";
+
+    try {
+        const { error } = await supabaseClient
+            .from('contributions')
+            .update({
+                status: 'FLAGGED',
+                exception_notes: reason || "Unspecified validation fault."
+            })
+            .eq('id', activeTargetTxId);
+
+        if (error) throw error;
+
+        document.getElementById('flag-modal').classList.add('hidden');
+        activeTargetTxId = null;
+
+        // Force reload core data pipeline
+        await fetchAndRenderLedgerData();
+
+    } catch (err) {
+        console.error("Cloud mutation fault execution rejected:", err);
+        alert(`Failed to log exception flag: ${err.message}`);
+    } finally {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = originalText;
+    }
+});
+
+document.getElementById('modal-cancel-btn').addEventListener('click', function () {
+    document.getElementById('flag-modal').classList.add('hidden');
+    activeTargetTxId = null;
+});
+
+// 6. MEMBER INTERFACE WORKSPACES (Dynamic Inflow Writes)
+const receiptFileInput = document.getElementById('member-receipt-file');
+if (receiptFileInput) {
+    receiptFileInput.addEventListener('change', function (e) {
+        const fileLabelText = document.getElementById('upload-box-text');
+        if (fileLabelText && e.target.files.length > 0) {
+            const selectedFileName = e.target.files[0].name;
+            fileLabelText.innerHTML = `Selected File: <strong class="text-emerald-400 font-mono">${selectedFileName}</strong>`;
+        } else if (fileLabelText) {
+            fileLabelText.textContent = "Click or drag receipt image file here";
+        }
+    });
+}
+
+const memberDepositForm = document.getElementById('prd-member-deposit-form');
+if (memberDepositForm) {
+    memberDepositForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const bank = document.getElementById('member-sender-bank').value.trim();
+        const account = document.getElementById('member-sender-name').value.trim();
+        const ref = document.getElementById('member-payment-ref').value.trim();
+
+        // Dynamic Extraction Layers
+        const amountElement = document.getElementById('member-deposit-amount') || document.getElementById('member-amount');
+        const cycleElement = document.getElementById('member-cycle-target') || document.getElementById('member-cycle');
+
+        const amount = amountElement ? parseFloat(amountElement.value) : 0.00;
+        const cycle = cycleElement ? cycleElement.value : "General Contribution";
+
+        const fileInput = document.getElementById('member-receipt-file');
+        const fileName = (fileInput && fileInput.files.length > 0) ? fileInput.files[0].name : "receipt_log.png";
+
+        if (amount <= 0 || isNaN(amount)) {
+            alert("Please provide a valid contribution payment amount.");
+            return;
+        }
+
+        const submitBtn = memberDepositForm.querySelector('button[type="submit"]');
+        const originalBtnText = submitBtn ? submitBtn.textContent : "Submit Deposit Slip";
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Transmitting to Cloud Pipeline...";
+        }
+
+        try {
+            const { error } = await supabaseClient
+                .from('contributions')
+                .insert([{
+                    user_id: state.currentUser.membershipId === "COOP-2026-UNKNOWN" ? null : (await supabaseClient.auth.getUser()).data.user.id,
+                    cycle_target: cycle,
+                    amount: amount,
+                    bank_name: bank,
+                    account_name: account,
+                    reference_number: ref,
+                    receipt_file_path: fileName,
+                    status: 'PENDING'
+                }]);
+
+            if (error) throw error;
+
+            memberDepositForm.reset();
+            const fileLabelText = document.getElementById('upload-box-text');
+            if (fileLabelText) fileLabelText.textContent = "Click or drag receipt image file here";
+
+            alert("Ledger deposit record entry successfully submitted to cloud verification pipeline!");
+
+            await fetchAndRenderLedgerData();
+
+        } catch (err) {
+            console.error("Failed to write live contribution:", err);
+            alert(`Submission rejected: ${err.message || 'Check database constraint rules.'}`);
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
+            }
+        }
+    });
+}
+
+// Wire up navigation event listeners safely within DOM runtime bounds
+document.addEventListener('DOMContentLoaded', async function () {
+    try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+
+        if (session && session.user) {
+            await fetchProfileAndSynchronize(session.user);
+            navigateTo('screen-dashboard');
+            initializeAppRouting();
+        } else {
+            navigateTo('screen-landing');
+        }
+    } catch (error) {
+        console.error('Session check failed:', error);
+        navigateTo('screen-landing');
+    }
+
+    // Landing navigation hooks
+    document.getElementById('landing-login-btn').addEventListener('click', function () { navigateTo('screen-auth'); });
+    document.getElementById('landing-register-btn').addEventListener('click', function () { navigateTo('screen-register'); });
+    document.getElementById('auth-back-btn').addEventListener('click', function () { navigateTo('screen-landing'); });
+    document.getElementById('register-back-btn').addEventListener('click', function () { navigateTo('screen-landing'); });
+
+    // Secure login form submission handler
+    document.getElementById('secure-login-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const emailInput = document.getElementById('auth-email-input');
+        const passwordInput = document.getElementById('auth-password-input');
+        const submitBtn = document.getElementById('auth-submit-btn');
+
+        emailInput.disabled = true;
+        passwordInput.disabled = true;
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Authenticating Protocol...";
+
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+
+        try {
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+            if (error) throw error;
+
+            await fetchProfileAndSynchronize(data.user);
+
+            emailInput.value = '';
+            passwordInput.value = '';
+            emailInput.disabled = false;
+            passwordInput.disabled = false;
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Initialize Session";
+
+            navigateTo('screen-dashboard');
+            initializeAppRouting();
+
+        } catch (error) {
+            console.error('Authentication failed:', error);
+
+            emailInput.disabled = false;
+            passwordInput.disabled = false;
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Initialize Session";
+
+            const existingError = document.getElementById('auth-error-message');
+            if (existingError) existingError.remove();
+
+            const errorDiv = document.createElement('div');
+            errorDiv.id = 'auth-error-message';
+            errorDiv.className = 'mt-4 p-3 bg-rose-900/20 border border-rose-700/50 rounded-xl text-rose-400 text-xs';
+            errorDiv.innerHTML = `<span>Authentication failed: ${error.message}</span>`;
+            document.getElementById('secure-login-form').appendChild(errorDiv);
+            setTimeout(() => { if (errorDiv && errorDiv.parentNode) errorDiv.remove(); }, 5000);
+        }
+    });
+
+    // Secure registration form submission handler
+    document.getElementById('secure-registration-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const nameInput = document.getElementById('reg-name-input');
+        const emailInput = document.getElementById('reg-email-input');
+        const passwordInput = document.getElementById('reg-password-input');
+        const submitBtn = document.getElementById('reg-submit-btn');
+
+        nameInput.disabled = true;
+        emailInput.disabled = true;
+        passwordInput.disabled = true;
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Registering Identity...";
+
+        const name = nameInput.value.trim();
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+
+        try {
+            const { data: authData, error: signupError } = await supabaseClient.auth.signUp({ email, password });
+
+            if (signupError) throw signupError;
+
+            const generatedId = "COOP-2026-" + Math.floor(1000 + Math.random() * 9000);
+
+            const { error: profileError } = await supabaseClient.from('profiles').insert([{
+                id: authData.user.id,
+                full_name: name,
+                membership_id: generatedId,
+                role: 'MEMBER'
+            }]);
+
+            if (profileError) throw profileError;
+
+            state.currentUser = {
+                email: authData.user.email,
+                fullName: name,
+                membershipId: generatedId,
+                role: 'MEMBER'
+            };
+
+            nameInput.value = '';
+            emailInput.value = '';
+            passwordInput.value = '';
+            nameInput.disabled = false;
+            emailInput.disabled = false;
+            passwordInput.disabled = false;
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Generate Member Account";
+
+            alert("Account successfully created! Welcome to CoreLedger Co-op.");
+
+            navigateTo('screen-dashboard');
+            initializeAppRouting();
+
+        } catch (error) {
+            console.error('Registration failed:', error);
+
+            nameInput.disabled = false;
+            emailInput.disabled = false;
+            passwordInput.disabled = false;
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Generate Member Account";
+
+            const existingError = document.getElementById('register-error-message');
+            if (existingError) existingError.remove();
+
+            const errorDiv = document.createElement('div');
+            errorDiv.id = 'register-error-message';
+            errorDiv.className = 'mt-4 p-3 bg-rose-900/20 border border-rose-700/50 rounded-xl text-rose-400 text-xs';
+            errorDiv.innerHTML = `<span>Registration failed: ${error.message}</span>`;
+            document.getElementById('secure-registration-form').appendChild(errorDiv);
+            setTimeout(() => { if (errorDiv && errorDiv.parentNode) errorDiv.remove(); }, 5000);
+        }
+    });
+
+    // Auth logout handler
+    document.getElementById('auth-logout-btn').addEventListener('click', async function () {
+        try {
+            await supabaseClient.auth.signOut();
+            state.currentUser = { email: "", fullName: "", membershipId: "", role: "MEMBER" };
+            navigateTo('screen-landing');
+        } catch (error) {
+            console.error('Sign out failed:', error);
+        }
+    });
+});
