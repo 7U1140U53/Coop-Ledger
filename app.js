@@ -76,7 +76,7 @@ async function syncUserProfileAndGroupRole() {
         }
         state.userProfile = profile;
 
-        // Gather only the workspaces this specific user has access to
+        // Gather only the active workspaces this specific user has access to
         await fetchIsolateWorkspaces();
 
         // If no circle context is chosen yet, auto-select their first available workspace
@@ -92,7 +92,7 @@ async function syncUserProfileAndGroupRole() {
                 .eq('id', state.currentGroup.id)
                 .maybeSingle();
 
-            if (groupData) {
+            if (groupData && !groupData.is_archived) {
                 state.currentGroup.name = groupData.group_name;
                 state.currentGroup.contributionAmount = groupData.contribution_amount;
                 state.currentGroup.currentRound = groupData.current_round;
@@ -168,7 +168,7 @@ async function fetchIsolateWorkspaces() {
         let query = supabase.from('coop_groups').select('*');
 
         // Filter out records matching ownership or contribution existence loops
-        if (ownedGroups && ownedGroups.length > 0 || joinedIds.length > 0) {
+        if ((ownedGroups && ownedGroups.length > 0) || joinedIds.length > 0) {
             const dynamicFilters = [];
             if (state.sessionUser.id) dynamicFilters.push(`created_by.eq.${state.sessionUser.id}`);
             if (joinedIds.length > 0) dynamicFilters.push(`id.in.(${joinedIds.join(',')})`);
@@ -178,7 +178,11 @@ async function fetchIsolateWorkspaces() {
             query = query.eq('id', 'FORCE_EMPTY_SET');
         }
 
-        const { data: crossFilteredGroups } = await query.order('created_at', { ascending: false });
+        // Exclude archived circles completely from dashboard indexes
+        const { data: crossFilteredGroups } = await query
+            .eq('is_archived', false)
+            .order('created_at', { ascending: false });
+
         state.userCirclesList = crossFilteredGroups || [];
     } catch (err) {
         console.error("Workspace Filtering Failure:", err.message);
@@ -274,7 +278,7 @@ async function executeAjoEnginePipeline() {
 }
 
 // ==========================================================
-// 7. MULTI-PANEL VIEW INTERACTORS (ANTI-DOUBLE DEPOSIT UPGRADE)
+// 7. MULTI-PANEL VIEW INTERACTORS
 // ==========================================================
 async function renderInterfacePanels() {
     const mPanel = document.getElementById('member-panel');
@@ -293,7 +297,6 @@ async function renderInterfacePanels() {
         return;
     }
 
-    // Comprehensive query select structure mapping fields for rich presentation UI
     const { data: userLog } = await supabase
         .from('coop_contributions')
         .select('status, payment_reference, sender_bank_name, amount, created_at')
@@ -309,7 +312,6 @@ async function renderInterfacePanels() {
         const displayAmt = userLog.amount ? userLog.amount.toLocaleString() : (state.currentGroup.contributionAmount || 0).toLocaleString();
         const displayTime = userLog.created_at ? new Date(userLog.created_at).toLocaleTimeString() : new Date().toLocaleTimeString();
 
-        // 📊 TAB 1: CIRCLE OVERVIEW (Upgraded Personal Standing Matrix Widget)
         if (mPanel) {
             mPanel.innerHTML = `
                 <div class="border border-slate-800 bg-slate-900/20 rounded-xl p-5 space-y-4 animate-fade-in">
@@ -322,7 +324,6 @@ async function renderInterfacePanels() {
                             ● ${isApproved ? 'Cleared & Verified' : 'Awaiting Treasury Audit'}
                         </span>
                     </div>
-                    
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div class="bg-slate-950 p-3 rounded-lg border border-slate-900/60">
                             <span class="text-[10px] text-slate-500 block uppercase font-mono mb-1">Cycle Allocation</span>
@@ -337,7 +338,6 @@ async function renderInterfacePanels() {
                             <span class="text-xs font-mono font-bold text-emerald-400 block truncate" title="${displayRef}">${displayRef}</span>
                         </div>
                     </div>
-                    
                     <div class="flex justify-between items-center text-[10px] text-slate-500 font-mono pt-1">
                         <span>Logged onto ledger wire: ${displayTime}</span>
                         <span>Round context: ${state.currentGroup.currentRound}</span>
@@ -346,7 +346,6 @@ async function renderInterfacePanels() {
             `;
         }
 
-        // 💰 TAB 2: SUBMIT DEPOSIT (Receipt Banner added smoothly with margin-bottom)
         if (depositStatusWrapper) {
             depositStatusWrapper.innerHTML = `
                 <div class="border border-dashed border-slate-800 bg-slate-900/30 rounded-xl p-6 text-center max-w-md mx-auto space-y-3 mb-6 animate-fade-in">
@@ -366,7 +365,6 @@ async function renderInterfacePanels() {
             `;
         }
 
-        // 🔒 LOCK ENGINE: Form stays open/visible below receipt, but inputs and submit button freeze hard
         if (depositForm) {
             depositForm.classList.remove('hidden');
             const submitBtn = depositForm.querySelector('button[type="submit"]');
@@ -380,7 +378,6 @@ async function renderInterfacePanels() {
         }
 
     } else {
-        // Safe Default Initialization State Frame (When no entry exists yet for the running active round)
         if (mPanel) {
             mPanel.innerHTML = `
                 <div class="p-4 text-center text-slate-400 bg-slate-900 border border-slate-800 rounded-xl w-full text-xs flex justify-between items-center flex-wrap gap-2">
@@ -463,10 +460,11 @@ function setupFormHandlers() {
     document.getElementById('btn-copy-invite').addEventListener('click', copyInviteLink);
     document.getElementById('btn-save-profile')?.addEventListener('click', handleUpdateProfileName);
     document.getElementById('btn-save-group-config')?.addEventListener('click', handleUpdateGroupConfig);
+    document.getElementById('btn-archive-group')?.addEventListener('click', handleArchiveGroup);
 }
 
 // ==========================================================
-// 9. CONFIGURATION EDITS (LIVE UPDATING ENGINE)
+// 9. CONFIGURATION EDITS & ARCHIVING ARCHITECTURE
 // ==========================================================
 async function handleUpdateGroupConfig() {
     const editName = document.getElementById('edit-group-name').value.trim();
@@ -493,8 +491,30 @@ async function handleUpdateGroupConfig() {
     }
 }
 
+async function handleArchiveGroup() {
+    if (!state.currentGroup.id) return;
+    if (!confirm("🚨 Are you sure you want to archive this circle? It will be safely tucked away and removed from all active member dashboard lists.")) return;
+
+    const archiveBtn = document.getElementById('btn-archive-group');
+    if (archiveBtn) archiveBtn.disabled = true;
+
+    const { error } = await supabase
+        .from('coop_groups')
+        .update({ is_archived: true })
+        .eq('id', state.currentGroup.id);
+
+    if (error) {
+        alert("Error archiving circle: " + error.message);
+        if (archiveBtn) archiveBtn.disabled = false;
+    } else {
+        alert("📦 Circle successfully moved to archives.");
+        // Redirect cleanly to clear out the current archived group ID context
+        window.location.search = "";
+    }
+}
+
 // ==========================================================
-// 10. RECONCILIATION QUEUE FEED
+// 10. RECONCILIATION QUEUE FEED (WITH LIVE PURGE TOOL)
 // ==========================================================
 async function fetchAndRenderAuditFeed() {
     const feedContainer = document.getElementById('audit-feed-rows');
@@ -520,9 +540,12 @@ async function fetchAndRenderAuditFeed() {
                 <span class="block font-mono text-emerald-400 font-bold">${row.payment_reference}</span>
                 <span class="text-[10px] text-slate-400">${row.sender_bank_name} | ₦${(row.amount || 0).toLocaleString()}</span> 
             </td>
-            <td class="p-4 text-right">
+            <td class="p-4 text-right space-x-1.5 whitespace-nowrap">
                 <button onclick="approveTransaction(this, '${row.id}')" class="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white text-[10px] font-bold py-1 px-2.5 rounded-lg transition-all active:scale-95 duration-100 shadow-sm">
                     Approve
+                </button>
+                <button onclick="rejectAndEraseTransaction(this, '${row.id}')" class="bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white text-[10px] font-bold py-1 px-2.5 rounded-lg transition-all active:scale-95 duration-100 shadow-sm">
+                    Delete
                 </button>
             </td>
         </tr>
@@ -536,6 +559,28 @@ async function approveTransaction(buttonElement, id) {
     if (!error) {
         executeAjoEnginePipeline();
         await renderInterfacePanels();
+    }
+}
+
+async function rejectAndEraseTransaction(buttonElement, id) {
+    if (!confirm("Are you sure you want to permanently delete this duplicate or invalid ledger entry?")) return;
+
+    buttonElement.disabled = true;
+    buttonElement.innerText = "Erasing...";
+
+    const { error } = await supabase
+        .from('coop_contributions')
+        .delete()
+        .eq('id', id);
+
+    if (!error) {
+        alert("🗑️ Entry purged from the ledger queue successfully.");
+        executeAjoEnginePipeline();
+        await renderInterfacePanels();
+    } else {
+        alert("Error deleting entry: " + error.message);
+        buttonElement.disabled = false;
+        buttonElement.innerText = "Delete";
     }
 }
 
@@ -601,6 +646,7 @@ function toggleView(view) {
     }
 }
 
+// ✨ Fixed: Preserves highlighting on the active tab element
 function switchSubView(viewName) {
     document.querySelectorAll('.sub-view').forEach(p => p.classList.add('hidden'));
     document.getElementById(`view-${viewName}`)?.classList.remove('hidden');
