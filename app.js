@@ -146,13 +146,11 @@ async function syncUserProfileAndGroupRole() {
 // ==========================================================
 async function fetchIsolateWorkspaces() {
     try {
-        // Fetch all circles created by user
         const { data: ownedGroups } = await supabase
             .from('coop_groups')
             .select('*')
             .eq('created_by', state.sessionUser.id);
 
-        // Fetch circles where user has logged a transaction
         const { data: joinedTx } = await supabase
             .from('coop_contributions')
             .select('group_id')
@@ -160,25 +158,21 @@ async function fetchIsolateWorkspaces() {
 
         const joinedIds = joinedTx ? joinedTx.map(t => t.group_id) : [];
 
-        // Include current URL parameter circle context to support fresh invitations cleanly
         if (urlGroupId) {
             joinedIds.push(urlGroupId);
         }
 
         let query = supabase.from('coop_groups').select('*');
 
-        // Filter out records matching ownership or contribution existence loops
         if ((ownedGroups && ownedGroups.length > 0) || joinedIds.length > 0) {
             const dynamicFilters = [];
             if (state.sessionUser.id) dynamicFilters.push(`created_by.eq.${state.sessionUser.id}`);
             if (joinedIds.length > 0) dynamicFilters.push(`id.in.(${joinedIds.join(',')})`);
             query = query.or(dynamicFilters.join(','));
         } else {
-            // Edge-case protection: Block empty queries from returning everything
             query = query.eq('id', 'FORCE_EMPTY_SET');
         }
 
-        // Exclude archived circles completely from dashboard indexes
         const { data: crossFilteredGroups } = await query
             .eq('is_archived', false)
             .order('created_at', { ascending: false });
@@ -189,6 +183,9 @@ async function fetchIsolateWorkspaces() {
     }
 }
 
+// ==========================================================
+// HYBRID INTEGRATED HUB DECK MATRIX RENDER LOOP
+// ==========================================================
 function renderCirclesHubDeck() {
     const grid = document.getElementById('circles-directory-grid');
     if (!grid) return;
@@ -198,14 +195,17 @@ function renderCirclesHubDeck() {
         return;
     }
 
-    grid.innerHTML = state.userCirclesList.map(group => {
+    // Map loops inject cards: elements past index 2 receive responsive 'lg:hidden' visibility filters
+    let cardsHtml = state.userCirclesList.map((group, index) => {
         const isCurrent = group.id === state.currentGroup.id;
         const isOwner = group.created_by === state.sessionUser.id;
+        const responsiveClass = index >= 3 ? 'lg:hidden' : '';
+
         return `
             <div onclick="switchCircleWorkspace('${group.id}')" 
-                class="cursor-pointer p-3.5 rounded-xl border transition flex flex-col justify-between h-20 shadow-sm
+                class="${responsiveClass} snap-start shrink-0 min-w-[85%] sm:min-w-[48%] lg:min-w-0 h-20 p-3.5 rounded-xl border transition flex flex-col justify-between h-20 shadow-sm cursor-pointer
                 ${isCurrent
-                ? 'bg-slate-900 border-emerald-500/50 ring-1 ring-emerald-500/20'
+                ? 'bg-slate-900 border-emerald-500/50 ring-1 ring-emerald-500/20 text-white'
                 : 'bg-slate-950 hover:bg-slate-900/60 border-slate-800 text-slate-300 hover:text-white'}">
                 <div class="flex justify-between items-start gap-2">
                     <h4 class="text-xs font-bold truncate max-w-[150px] tracking-wide">${group.group_name}</h4>
@@ -220,7 +220,87 @@ function renderCirclesHubDeck() {
             </div>
         `;
     }).join('');
+
+    // Append standard interactive SaaS Drawer utility trigger card if total active scopes break row boundaries
+    if (state.userCirclesList.length > 3) {
+        const remainingCount = state.userCirclesList.length - 3;
+        cardsHtml += `
+            <div onclick="openCirclesDrawer()" 
+                class="hidden lg:flex snap-start shrink-0 h-20 p-3.5 rounded-xl border border-dashed border-slate-800 bg-slate-900/40 hover:bg-slate-900 text-emerald-400 hover:text-emerald-300 items-center justify-center gap-2 transition cursor-pointer font-mono text-xs font-bold uppercase tracking-wider shadow-sm">
+                <span>🗂️ View All (+${remainingCount})</span>
+            </div>
+        `;
+    }
+
+    grid.innerHTML = cardsHtml;
+    renderDrawerCirclesList(state.userCirclesList);
 }
+
+// Drawer-specific data list hydration
+function renderDrawerCirclesList(circles) {
+    const drawerList = document.getElementById('drawer-circles-list');
+    if (!drawerList) return;
+
+    if (circles.length === 0) {
+        drawerList.innerHTML = `<div class="text-xs text-slate-500 italic p-4 text-center font-mono">No matching records found.</div>`;
+        return;
+    }
+
+    drawerList.innerHTML = circles.map(group => {
+        const isCurrent = group.id === state.currentGroup.id;
+        const isOwner = group.created_by === state.sessionUser.id;
+        return `
+            <div onclick="switchCircleWorkspace('${group.id}'); closeCirclesDrawer();" 
+                class="p-3.5 rounded-xl border transition flex items-center justify-between cursor-pointer shadow-sm
+                ${isCurrent
+                ? 'bg-slate-900 border-emerald-500/50 ring-1 ring-emerald-500/10'
+                : 'bg-slate-950 hover:bg-slate-900/60 border-slate-800 text-slate-300 hover:text-white'}" >
+                <div class="flex flex-col gap-0.5 truncate max-w-[70%]">
+                    <h4 class="text-xs font-bold truncate tracking-wide text-slate-200">${group.group_name}</h4>
+                    <span class="text-[10px] text-slate-500 font-medium">${isOwner ? '👑 Spearheading' : '🏃 Participant'}</span>
+                </div>
+                <div class="text-right flex flex-col items-end gap-1 font-mono shrink-0">
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">
+                        ₦${(group.contribution_amount || 0).toLocaleString()}
+                    </span>
+                    ${isCurrent ? '<span class="text-emerald-400 font-bold text-[9px] uppercase tracking-widest">● Active</span>' : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Global scope window accessors for side drawer actions
+window.openCirclesDrawer = function () {
+    const drawer = document.getElementById('circles-drawer');
+    const backdrop = document.getElementById('circles-drawer-backdrop');
+    if (drawer && backdrop) {
+        backdrop.classList.remove('opacity-0', 'pointer-events-none');
+        backdrop.classList.add('opacity-100');
+        drawer.classList.remove('translate-x-full');
+    }
+    const searchInput = document.getElementById('drawer-search-input');
+    if (searchInput) searchInput.value = '';
+    renderDrawerCirclesList(state.userCirclesList);
+};
+
+window.closeCirclesDrawer = function () {
+    const drawer = document.getElementById('circles-drawer');
+    const backdrop = document.getElementById('circles-drawer-backdrop');
+    if (drawer && backdrop) {
+        backdrop.classList.remove('opacity-100');
+        backdrop.classList.add('opacity-0', 'pointer-events-none');
+        drawer.classList.add('translate-x-full');
+    }
+};
+
+window.filterDrawerCircles = function () {
+    const searchVal = document.getElementById('drawer-search-input')?.value.toLowerCase().trim() || "";
+    const filtered = state.userCirclesList.filter(group =>
+        group.group_name.toLowerCase().includes(searchVal)
+    );
+    renderDrawerCirclesList(filtered);
+};
 
 async function switchCircleWorkspace(targetGroupId) {
     state.currentGroup.id = targetGroupId;
@@ -508,7 +588,6 @@ async function handleArchiveGroup() {
         if (archiveBtn) archiveBtn.disabled = false;
     } else {
         alert("📦 Circle successfully moved to archives.");
-        // Redirect cleanly to clear out the current archived group ID context
         window.location.search = "";
     }
 }
@@ -646,7 +725,6 @@ function toggleView(view) {
     }
 }
 
-// ✨ Fixed: Preserves highlighting on the active tab element
 function switchSubView(viewName) {
     document.querySelectorAll('.sub-view').forEach(p => p.classList.add('hidden'));
     document.getElementById(`view-${viewName}`)?.classList.remove('hidden');
