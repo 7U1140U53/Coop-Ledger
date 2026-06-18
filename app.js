@@ -14,16 +14,16 @@ let urlGroupId = urlParams.get('group') || null;
 const state = {
     sessionUser: null,
     userProfile: null,
-    userCirclesList: [], // Dynamically isolated workspaces
+    userCirclesList: [],
     currentGroup: {
         id: urlGroupId,
-        name: "No Active Circle",
+        name: "Select a circle",
         contributionAmount: 50000,
         currentRound: 1,
         createdBy: null,
         description: ""
     },
-    effectiveRole: "MEMBER" // Calculated dynamically per workspace context
+    effectiveRole: "MEMBER"
 };
 
 // ==========================================================
@@ -58,7 +58,6 @@ async function syncUserProfileAndGroupRole() {
     try {
         if (!state.sessionUser) return;
 
-        // Fetch user handle
         let { data: profile } = await supabase
             .from('coop_profiles')
             .select('*')
@@ -76,15 +75,12 @@ async function syncUserProfileAndGroupRole() {
         }
         state.userProfile = profile;
 
-        // Gather only the active workspaces this specific user has access to
         await fetchIsolateWorkspaces();
 
-        // If no circle context is chosen yet, auto-select their first available workspace
         if (!state.currentGroup.id && state.userCirclesList.length > 0) {
             state.currentGroup.id = state.userCirclesList[0].id;
         }
 
-        // Hydrate specific active circle details
         if (state.currentGroup.id) {
             const { data: groupData } = await supabase
                 .from('coop_groups')
@@ -97,9 +93,8 @@ async function syncUserProfileAndGroupRole() {
                 state.currentGroup.contributionAmount = groupData.contribution_amount;
                 state.currentGroup.currentRound = groupData.current_round;
                 state.currentGroup.createdBy = groupData.created_by;
-                state.currentGroup.description = groupData.description || "No core guidelines set.";
+                state.currentGroup.description = groupData.description || "No description set.";
 
-                // CRITICAL PERMISSION MATRIX: Check if current user is the creator of THIS specific circle
                 state.effectiveRole = (state.currentGroup.createdBy === state.sessionUser.id) ? 'TREASURER' : 'MEMBER';
             } else {
                 state.currentGroup.id = null;
@@ -107,13 +102,11 @@ async function syncUserProfileAndGroupRole() {
             }
         }
 
-        // Update UI controls dynamically based on calculated workspace authority
         if (state.effectiveRole === 'TREASURER') {
             document.getElementById('tab-audit')?.classList.remove('hidden');
             document.getElementById('treasurer-settings-block')?.classList.remove('hidden');
             document.getElementById('group-config-panel')?.classList.remove('hidden');
 
-            // Populate administrative configuration inputs
             const nameField = document.getElementById('edit-group-name');
             const amtField = document.getElementById('edit-group-amount');
             const descField = document.getElementById('edit-group-desc');
@@ -122,7 +115,6 @@ async function syncUserProfileAndGroupRole() {
             if (amtField) amtField.value = state.currentGroup.contributionAmount;
             if (descField) descField.value = state.currentGroup.description;
         } else {
-            // Tighten security down for basic members
             document.getElementById('tab-audit')?.classList.add('hidden');
             document.getElementById('treasurer-settings-block')?.classList.add('hidden');
             document.getElementById('group-config-panel')?.classList.add('hidden');
@@ -184,18 +176,17 @@ async function fetchIsolateWorkspaces() {
 }
 
 // ==========================================================
-// HYBRID INTEGRATED HUB DECK MATRIX RENDER LOOP
+// 6. LAYOUT ENGINE CONTROLLER
 // ==========================================================
 function renderCirclesHubDeck() {
     const grid = document.getElementById('circles-directory-grid');
     if (!grid) return;
 
     if (state.userCirclesList.length === 0) {
-        grid.innerHTML = `<div class="col-span-full text-xs text-slate-500 italic p-2">You haven't joined or spearheaded any circles yet.</div>`;
+        grid.innerHTML = `<div class="col-span-full text-xs text-slate-500 italic p-2">You haven't joined any circles yet.</div>`;
         return;
     }
 
-    // Map loops inject cards: elements past index 2 receive responsive 'lg:hidden' visibility filters
     let cardsHtml = state.userCirclesList.map((group, index) => {
         const isCurrent = group.id === state.currentGroup.id;
         const isOwner = group.created_by === state.sessionUser.id;
@@ -203,7 +194,7 @@ function renderCirclesHubDeck() {
 
         return `
             <div onclick="switchCircleWorkspace('${group.id}')" 
-                class="${responsiveClass} snap-start shrink-0 min-w-[85%] sm:min-w-[48%] lg:min-w-0 h-20 p-3.5 rounded-xl border transition flex flex-col justify-between h-20 shadow-sm cursor-pointer
+                class="${responsiveClass} snap-start shrink-0 min-w-[85%] sm:min-w-[48%] lg:min-w-0 h-20 p-3.5 rounded-xl border transition flex flex-col justify-between shadow-sm cursor-pointer
                 ${isCurrent
                 ? 'bg-slate-900 border-emerald-500/50 ring-1 ring-emerald-500/20 text-white'
                 : 'bg-slate-950 hover:bg-slate-900/60 border-slate-800 text-slate-300 hover:text-white'}">
@@ -214,14 +205,13 @@ function renderCirclesHubDeck() {
                     </span>
                 </div>
                 <div class="flex justify-between items-center text-[10px] font-medium">
-                    <span class="text-slate-500">${isOwner ? '👑 Spearheading' : '🏃 Participant'}</span>
-                    ${isCurrent ? '<span class="text-emerald-400 font-bold flex items-center gap-1">● Active</span>' : '<span class="text-slate-500">View →</span>'}
+                    <span class="text-slate-500">${isOwner ? '👑 Manager' : '🏃 Member'}</span>
+                    ${isCurrent ? '<span class="text-emerald-400 font-bold flex items-center gap-1">● Active</span>' : '<span class="text-slate-500">View</span>'}
                 </div>
             </div>
         `;
     }).join('');
 
-    // Append standard interactive SaaS Drawer utility trigger card if total active scopes break row boundaries
     if (state.userCirclesList.length > 3) {
         const remainingCount = state.userCirclesList.length - 3;
         cardsHtml += `
@@ -236,13 +226,12 @@ function renderCirclesHubDeck() {
     renderDrawerCirclesList(state.userCirclesList);
 }
 
-// Drawer-specific data list hydration
 function renderDrawerCirclesList(circles) {
     const drawerList = document.getElementById('drawer-circles-list');
     if (!drawerList) return;
 
     if (circles.length === 0) {
-        drawerList.innerHTML = `<div class="text-xs text-slate-500 italic p-4 text-center font-mono">No matching records found.</div>`;
+        drawerList.innerHTML = `<div class="text-xs text-slate-500 italic p-4 text-center font-mono">No circles found.</div>`;
         return;
     }
 
@@ -257,7 +246,7 @@ function renderDrawerCirclesList(circles) {
                 : 'bg-slate-950 hover:bg-slate-900/60 border-slate-800 text-slate-300 hover:text-white'}" >
                 <div class="flex flex-col gap-0.5 truncate max-w-[70%]">
                     <h4 class="text-xs font-bold truncate tracking-wide text-slate-200">${group.group_name}</h4>
-                    <span class="text-[10px] text-slate-500 font-medium">${isOwner ? '👑 Spearheading' : '🏃 Participant'}</span>
+                    <span class="text-[10px] text-slate-500 font-medium">${isOwner ? '👑 Manager' : '🏃 Member'}</span>
                 </div>
                 <div class="text-right flex flex-col items-end gap-1 font-mono shrink-0">
                     <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">
@@ -270,7 +259,6 @@ function renderDrawerCirclesList(circles) {
     }).join('');
 }
 
-// Global scope window accessors for side drawer actions
 window.openCirclesDrawer = function () {
     const drawer = document.getElementById('circles-drawer');
     const backdrop = document.getElementById('circles-drawer-backdrop');
@@ -314,12 +302,12 @@ async function switchCircleWorkspace(targetGroupId) {
 }
 
 // ==========================================================
-// 6. PIPELINE ENGINE MANAGEMENT
+// 7. PIPELINE COMPILATION
 // ==========================================================
 async function executeAjoEnginePipeline() {
     try {
         if (!state.currentGroup.id) {
-            renderGlobalAjoBanner("No Circle Active", 0);
+            renderGlobalAjoBanner("Select a circle", 0);
             return;
         }
 
@@ -342,9 +330,9 @@ async function executeAjoEnginePipeline() {
 
         if (txErr) throw txErr;
 
-        let electedCollector = "No Approved Sprints Yet";
+        let electedCollector = "None this round";
         if (contributions && contributions.length > 0) {
-            electedCollector = contributions[0].coop_profiles?.full_name || contributions[0].sender_account_name || "Co-op Member";
+            electedCollector = contributions[0].coop_profiles?.full_name || contributions[0].sender_account_name || "Member";
         }
 
         renderGlobalAjoBanner(electedCollector, contributions ? contributions.length : 0);
@@ -358,7 +346,7 @@ async function executeAjoEnginePipeline() {
 }
 
 // ==========================================================
-// 7. MULTI-PANEL VIEW INTERACTORS
+// 8. INTERFACE PANEL HYDRATION
 // ==========================================================
 async function renderInterfacePanels() {
     const mPanel = document.getElementById('member-panel');
@@ -373,7 +361,7 @@ async function renderInterfacePanels() {
     }
 
     if (!state.currentGroup.id) {
-        if (mPanel) mPanel.innerHTML = `<div class="p-6 text-center text-slate-500 italic w-full">Select a workspace loop above to start tracking.</div>`;
+        if (mPanel) mPanel.innerHTML = `<div class="p-6 text-center text-slate-500 italic w-full">Select a circle to view stats.</div>`;
         return;
     }
 
@@ -388,7 +376,7 @@ async function renderInterfacePanels() {
     if (userLog) {
         const isApproved = userLog.status === 'APPROVED';
         const displayRef = userLog.payment_reference || "N/A";
-        const displayBank = userLog.sender_bank_name || "Direct Node Wire";
+        const displayBank = userLog.sender_bank_name || "Direct Wire";
         const displayAmt = userLog.amount ? userLog.amount.toLocaleString() : (state.currentGroup.contributionAmount || 0).toLocaleString();
         const displayTime = userLog.created_at ? new Date(userLog.created_at).toLocaleTimeString() : new Date().toLocaleTimeString();
 
@@ -396,31 +384,31 @@ async function renderInterfacePanels() {
             mPanel.innerHTML = `
                 <div class="border border-slate-800 bg-slate-900/20 rounded-xl p-5 space-y-4 animate-fade-in">
                     <div class="flex items-center justify-between border-b border-slate-900 pb-3">
-                        <h3 class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">Your Personal Standing</h3>
+                        <h3 class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">Your Status</h3>
                         <span class="text-[10px] font-mono px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider
                             ${isApproved
                     ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                     : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
-                            ● ${isApproved ? 'Cleared & Verified' : 'Awaiting Treasury Audit'}
+                            ● ${isApproved ? 'Approved' : 'Pending approval'}
                         </span>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div class="bg-slate-950 p-3 rounded-lg border border-slate-900/60">
-                            <span class="text-[10px] text-slate-500 block uppercase font-mono mb-1">Cycle Allocation</span>
+                            <span class="text-[10px] text-slate-500 block uppercase font-mono mb-1">Amount</span>
                             <span class="text-xs font-bold font-mono text-white">₦ ${displayAmt}</span>
                         </div>
                         <div class="bg-slate-950 p-3 rounded-lg border border-slate-900/60">
-                            <span class="text-[10px] text-slate-500 block uppercase font-mono mb-1">Payment Node</span>
+                            <span class="text-[10px] text-slate-500 block uppercase font-mono mb-1">Bank</span>
                             <span class="text-xs font-bold text-slate-300 font-mono">${displayBank}</span>
                         </div>
                         <div class="bg-slate-950 p-3 rounded-lg border border-slate-900/60">
-                            <span class="text-[10px] text-slate-500 block uppercase font-mono mb-1">Secured Reference Token</span>
+                            <span class="text-[10px] text-slate-500 block uppercase font-mono mb-1">Reference</span>
                             <span class="text-xs font-mono font-bold text-emerald-400 block truncate" title="${displayRef}">${displayRef}</span>
                         </div>
                     </div>
                     <div class="flex justify-between items-center text-[10px] text-slate-500 font-mono pt-1">
-                        <span>Logged onto ledger wire: ${displayTime}</span>
-                        <span>Round context: ${state.currentGroup.currentRound}</span>
+                        <span>Logged: ${displayTime}</span>
+                        <span>Round: ${state.currentGroup.currentRound}</span>
                     </div>
                 </div>
             `;
@@ -431,12 +419,12 @@ async function renderInterfacePanels() {
                 <div class="border border-dashed border-slate-800 bg-slate-900/30 rounded-xl p-6 text-center max-w-md mx-auto space-y-3 mb-6 animate-fade-in">
                     <div class="text-xl">${isApproved ? '🧾' : '⏳'}</div>
                     <h4 class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
-                        ${isApproved ? 'Deposit Approved & Confirmed' : 'Round Deposit Logged'}
+                        ${isApproved ? 'Deposit verified' : 'Deposit pending'}
                     </h4>
                     <p class="text-xs text-slate-400 leading-relaxed">
                         ${isApproved
-                    ? 'Your contribution token has been approved by the treasurer and is secured safely inside the live pool asset value stack.'
-                    : 'Your bank wire reference details are safely stored in the verification timeline queue awaiting administrative review.'}
+                    ? 'Your deposit has been approved and added to the pool.'
+                    : 'Your payment reference is under review.'}
                     </p>
                     <div class="inline-block bg-slate-950 px-3 py-1.5 rounded font-mono text-[11px] border border-slate-900 text-slate-400">
                         REF: <span class="${isApproved ? 'text-emerald-400' : 'text-amber-400'} font-bold">${displayRef}</span>
@@ -450,7 +438,7 @@ async function renderInterfacePanels() {
             const submitBtn = depositForm.querySelector('button[type="submit"]');
             if (submitBtn) {
                 submitBtn.disabled = true;
-                submitBtn.innerText = "🔒 Deposit Locked For This Round";
+                submitBtn.innerText = "🔒 Locked for this round";
                 submitBtn.className = "w-full bg-slate-800 text-slate-500 font-mono text-xs font-bold py-2.5 px-4 rounded-xl border border-slate-700 cursor-not-allowed transition";
             }
             if (txRefInput) txRefInput.disabled = true;
@@ -461,9 +449,9 @@ async function renderInterfacePanels() {
         if (mPanel) {
             mPanel.innerHTML = `
                 <div class="p-4 text-center text-slate-400 bg-slate-900 border border-slate-800 rounded-xl w-full text-xs flex justify-between items-center flex-wrap gap-2">
-                    <span>📣 You haven't registered a deposit tracker for Round ${state.currentGroup.currentRound}.</span>
+                    <span>📣 You haven't made a deposit for Round ${state.currentGroup.currentRound}.</span>
                     <button onclick="switchSubView('deposit')" class="bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 font-mono text-[11px] font-bold py-1 px-3 rounded-lg border border-emerald-500/20 transition">
-                        File Deposit Now →
+                        File Deposit →
                     </button>
                 </div>
             `;
@@ -474,7 +462,7 @@ async function renderInterfacePanels() {
             const submitBtn = depositForm.querySelector('button[type="submit"]');
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.innerText = "Dispatch Deposit Log";
+                submitBtn.innerText = "Submit deposit";
                 submitBtn.className = "w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition shadow-md shadow-emerald-900/10";
             }
             if (txRefInput) { txRefInput.disabled = false; txRefInput.value = ''; }
@@ -484,7 +472,7 @@ async function renderInterfacePanels() {
 }
 
 // ==========================================================
-// 8. GLOBAL EVENT INTERCEPTORS
+// 9. FORM DISPATCH ENGINE
 // ==========================================================
 function setupFormHandlers() {
     document.addEventListener('submit', async (e) => {
@@ -492,7 +480,7 @@ function setupFormHandlers() {
             e.preventDefault();
 
             if (!state.currentGroup.id) {
-                alert("⚠️ Please select an active circle workspace first.");
+                alert("⚠️ Select an active circle first.");
                 return;
             }
 
@@ -501,12 +489,12 @@ function setupFormHandlers() {
             const bank = document.getElementById('tx-bank').value;
 
             if (!reference.trim()) {
-                alert("Transaction reference token is required.");
+                alert("Reference code is required.");
                 return;
             }
 
             submitBtn.disabled = true;
-            submitBtn.innerText = "Securing Ledger Entry...";
+            submitBtn.innerText = "Securing entry...";
 
             const { error } = await supabase
                 .from('coop_contributions')
@@ -523,10 +511,10 @@ function setupFormHandlers() {
 
             if (error) {
                 submitBtn.disabled = false;
-                submitBtn.innerText = "Dispatch Deposit Log";
-                alert(error.code === '23505' ? "🔒 Anti-Double Spend Guard Activated!" : "Error: " + error.message);
+                submitBtn.innerText = "Submit deposit";
+                alert(error.code === '23505' ? "🔒 Deposit already submitted for this round." : "Error: " + error.message);
             } else {
-                alert("🎯 Tracking code filed into validation channel!");
+                alert("🎯 Deposit submitted!");
                 document.getElementById('tx-ref').value = '';
                 await renderInterfacePanels();
                 executeAjoEnginePipeline();
@@ -544,7 +532,7 @@ function setupFormHandlers() {
 }
 
 // ==========================================================
-// 9. CONFIGURATION EDITS & ARCHIVING ARCHITECTURE
+// 10. PROPERTIES MODIFIERS
 // ==========================================================
 async function handleUpdateGroupConfig() {
     const editName = document.getElementById('edit-group-name').value.trim();
@@ -553,7 +541,7 @@ async function handleUpdateGroupConfig() {
     const saveGroupBtn = document.getElementById('btn-save-group-config');
 
     if (!editName || !editAmount) {
-        alert("Parameters cannot be blank.");
+        alert("Fields cannot be blank.");
         return;
     }
 
@@ -566,14 +554,14 @@ async function handleUpdateGroupConfig() {
     saveGroupBtn.disabled = false;
     if (error) alert(error.message);
     else {
-        alert("✨ Workspace metrics configuration updated inside database!");
+        alert("✨ Settings updated!");
         await syncUserProfileAndGroupRole();
     }
 }
 
 async function handleArchiveGroup() {
     if (!state.currentGroup.id) return;
-    if (!confirm("🚨 Are you sure you want to archive this circle? It will be safely tucked away and removed from all active member dashboard lists.")) return;
+    if (!confirm("🚨 Archive this circle? It will be hidden from your dashboard.")) return;
 
     const archiveBtn = document.getElementById('btn-archive-group');
     if (archiveBtn) archiveBtn.disabled = true;
@@ -584,16 +572,16 @@ async function handleArchiveGroup() {
         .eq('id', state.currentGroup.id);
 
     if (error) {
-        alert("Error archiving circle: " + error.message);
+        alert("Error: " + error.message);
         if (archiveBtn) archiveBtn.disabled = false;
     } else {
-        alert("📦 Circle successfully moved to archives.");
+        alert("📦 Circle archived.");
         window.location.search = "";
     }
 }
 
 // ==========================================================
-// 10. RECONCILIATION QUEUE FEED (WITH LIVE PURGE TOOL)
+// 11. AUDIT RECONCILIATION GATE
 // ==========================================================
 async function fetchAndRenderAuditFeed() {
     const feedContainer = document.getElementById('audit-feed-rows');
@@ -607,7 +595,7 @@ async function fetchAndRenderAuditFeed() {
         .eq('status', 'PENDING_VERIFICATION');
 
     if (!pendingRows || pendingRows.length === 0) {
-        feedContainer.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-xs text-slate-500 italic">Audit verification pipeline is completely cleared.</td></tr>`;
+        feedContainer.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-xs text-slate-500 italic">All caught up! No pending deposits.</td></tr>`;
         return;
     }
 
@@ -642,7 +630,7 @@ async function approveTransaction(buttonElement, id) {
 }
 
 async function rejectAndEraseTransaction(buttonElement, id) {
-    if (!confirm("Are you sure you want to permanently delete this duplicate or invalid ledger entry?")) return;
+    if (!confirm("Permanently delete this entry?")) return;
 
     buttonElement.disabled = true;
     buttonElement.innerText = "Erasing...";
@@ -653,25 +641,25 @@ async function rejectAndEraseTransaction(buttonElement, id) {
         .eq('id', id);
 
     if (!error) {
-        alert("🗑️ Entry purged from the ledger queue successfully.");
+        alert("🗑️ Entry deleted.");
         executeAjoEnginePipeline();
         await renderInterfacePanels();
     } else {
-        alert("Error deleting entry: " + error.message);
+        alert("Error: " + error.message);
         buttonElement.disabled = false;
         buttonElement.innerText = "Delete";
     }
 }
 
 // ==========================================================
-// 11. DISPLAY WRAPPERS & INTERFACE UTILITIES
+// 12. RUNTIME UI DISPLAYS
 // ==========================================================
 function renderGlobalAjoBanner(collectorName, verifiedCount) {
     const container = document.getElementById('global-ajo-banner');
     if (!container) return;
 
     if (!state.currentGroup.id) {
-        container.innerHTML = `<div class="p-4 rounded-xl border border-dashed border-slate-800 bg-slate-900/40 text-center text-slate-500 text-xs">Choose or create a workspace tracking profile to start.</div>`;
+        container.innerHTML = `<div class="p-4 rounded-xl border border-dashed border-slate-800 bg-slate-900/40 text-center text-slate-500 text-xs">Choose a circle to start.</div>`;
         return;
     }
 
@@ -680,11 +668,11 @@ function renderGlobalAjoBanner(collectorName, verifiedCount) {
         <div class="p-4 rounded-xl border border-emerald-500/20 bg-slate-900/60 text-white mb-6 backdrop-blur">
             <div class="flex justify-between items-center flex-wrap gap-2">
                 <div>
-                    <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-400/10 text-emerald-400 uppercase border border-emerald-400/10">Round ${state.currentGroup.currentRound} Cycle Active</span>
-                    <h2 class="text-sm font-bold mt-1">🎯 Target Collector: <span class="text-yellow-400">${collectorName}</span></h2>
+                    <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-400/10 text-emerald-400 uppercase border border-emerald-400/10">Round ${state.currentGroup.currentRound}</span>
+                    <h2 class="text-sm font-bold mt-1">Collector: <span class="text-yellow-400">${collectorName}</span></h2>
                 </div>
                 <div class="text-right">
-                    <span class="text-[10px] text-slate-400 block uppercase font-mono">Accumulated Round Pool Value</span>
+                    <span class="text-[10px] text-slate-400 block uppercase font-mono">Total pool value</span>
                     <span class="text-lg font-black text-emerald-400 font-mono">₦${totalPool.toLocaleString()}</span>
                 </div>
             </div>
@@ -755,7 +743,7 @@ async function handleRegister() {
 }
 
 // ==========================================================
-// 12. UTILITIES & WIZARDS
+// 13. UTILITIES & MODALS
 // ==========================================================
 function setupPasswordToggle() {
     const toggleBtn = document.getElementById('toggle-password');
@@ -783,14 +771,14 @@ async function handleUpdateProfileName() {
 function copyInviteLink() {
     if (!state.currentGroup.id) return;
     const inviteLink = `${window.location.origin}${window.location.pathname}?group=${state.currentGroup.id}`;
-    navigator.clipboard.writeText(inviteLink).then(() => alert("📋 Shareable circle link copied to clipboard!"));
+    navigator.clipboard.writeText(inviteLink).then(() => alert("📋 Share link copied!"));
 }
 
 async function handleCreateGroupWizard() {
-    const customName = prompt("✨ Name your new Peer-to-Peer Circle:");
+    const customName = prompt("Name your new circle:");
     if (!customName || !customName.trim()) return;
 
-    const customAmount = prompt("💰 Specify the round contribution goal amount (₦):", "50000");
+    const customAmount = prompt("Enter the round goal amount (₦):", "50000");
     const formattedAmount = parseInt(customAmount) || 50000;
 
     const generatedGroupId = "CIRCLE-" + Math.random().toString(36).substring(2, 9).toUpperCase();
@@ -803,11 +791,11 @@ async function handleCreateGroupWizard() {
             contribution_amount: formattedAmount,
             current_round: 1,
             created_by: state.sessionUser.id,
-            description: "Custom decentralized savings agenda portfolio tracking block."
+            description: "Savings and contribution circle."
         }]);
 
     if (!error) {
-        alert(`🎯 Workspace loop created successfully!`);
+        alert(`🎯 Circle created!`);
         await switchCircleWorkspace(generatedGroupId);
     }
 }

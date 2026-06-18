@@ -10,7 +10,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* CSS Blueprint Grid Matrix Engine */
         .saas-grid-matrix {
             background-size: 24px 24px;
             background-image:
@@ -18,7 +17,6 @@
                 linear-gradient(to bottom, rgba(30, 41, 59, 0.2) 1px, transparent 1px);
         }
 
-        /* Hide scrollbars for aesthetic horizontal conveyor lane */
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
@@ -27,6 +25,23 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
+
+        /* Smooth state transitions */
+        .animate-fade-in {
+            animation: fadeIn 0.2s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
     </style>
 </head>
 
@@ -34,11 +49,9 @@
 
     <div class="fixed inset-0 z-0 pointer-events-none overflow-hidden select-none bg-slate-950">
         <div class="absolute inset-0 saas-grid-matrix opacity-100"></div>
-
         <div
             class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[45rem] h-[45rem] sm:w-[65rem] sm:h-[65rem] rounded-full bg-emerald-500/5 blur-[120px]">
         </div>
-
         <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,#020617_90%)] opacity-70">
         </div>
     </div>
@@ -46,7 +59,7 @@
     <div id="app-loading-screen"
         class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950 transition-opacity duration-300">
         <div class="h-8 w-8 animate-spin rounded-full border-2 border-slate-800 border-t-emerald-500"></div>
-        <p class="mt-4 text-xs font-mono text-slate-500 tracking-wider uppercase">Connecting...</p>
+        <p class="mt-4 text-xs font-mono text-slate-500 tracking-wider uppercase">Loading...</p>
     </div>
 
     <div class="relative z-10 min-h-full flex flex-col">
@@ -54,9 +67,10 @@
         <div id="auth-view" class="hidden min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8 px-4">
             <div class="sm:mx-auto sm:w-full sm:max-w-md text-center">
                 <span
-                    class="text-xs font-mono px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-widest">Gateway</span>
-                <h2 class="mt-4 text-2xl font-black text-white tracking-tight">Coop Ledger</h2>
-                <p class="mt-1.5 text-xs text-slate-400">Access peer-to-peer tracking circles.</p>
+                    class="text-xs font-mono px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-widest">Sign
+                    In</span>
+                <h2 class="mt-4 text-2xl font-black text-white tracking-tight">Welcome back</h2>
+                <p class="mt-1.5 text-xs text-slate-400">Access your contribution circles.</p>
             </div>
 
             <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
@@ -81,13 +95,11 @@
 
                     <div class="grid grid-cols-2 gap-3 pt-2">
                         <button id="btn-login" type="button"
-                            class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl transition text-xs shadow-md shadow-emerald-900/20">
-                            Sign In
-                        </button>
+                            class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl transition text-xs shadow-md shadow-emerald-900/20">Sign
+                            in</button>
                         <button id="btn-register" type="button"
-                            class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2 px-4 rounded-xl transition text-xs border border-slate-700">
-                            Register
-                        </button>
+                            class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2 px-4 rounded-xl transition text-xs border border-slate-700">Create
+                            account</button>
                     </div>
                 </div>
             </div>
@@ -112,13 +124,12 @@
                 <section id="global-circles-hub" class="hidden space-y-3">
                     <div class="flex justify-between items-center">
                         <div>
-                            <h3 class="text-xs font-mono text-slate-400 uppercase tracking-wider">Active Circles</h3>
-                            <p class="text-[11px] text-slate-500">Isolate your workspace view instantly.</p>
+                            <h3 class="text-xs font-mono text-slate-400 uppercase tracking-wider">Your Circles</h3>
+                            <p class="text-[11px] text-slate-500">Select a circle to manage your ledger.</p>
                         </div>
                         <button onclick="handleCreateGroupWizard()"
-                            class="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-emerald-400 hover:text-emerald-300 font-mono text-[10px] font-bold py-1.5 px-3 rounded-lg transition uppercase tracking-wider">
-                            + New Circle
-                        </button>
+                            class="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-emerald-400 hover:text-emerald-300 font-mono text-[10px] font-bold py-1.5 px-3 rounded-lg transition uppercase tracking-wider">+
+                            New Circle</button>
                     </div>
 
                     <div id="circles-directory-grid"
@@ -132,17 +143,14 @@
                     class="bg-slate-950/40 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl backdrop-blur-sm flex flex-col min-h-[400px]">
                     <div class="bg-slate-900/50 border-b border-slate-800 p-2 flex gap-1 items-center overflow-x-auto">
                         <button id="tab-overview" onclick="switchSubView('overview')"
-                            class="tab-btn px-4 py-1.5 rounded-lg text-xs font-bold font-mono uppercase tracking-wider transition">
-                            📊 Overview
-                        </button>
+                            class="tab-btn px-4 py-1.5 rounded-lg text-xs font-bold font-mono uppercase tracking-wider transition">📊
+                            Overview</button>
                         <button id="tab-deposit" onclick="switchSubView('deposit')"
-                            class="tab-btn px-4 py-1.5 rounded-lg text-xs font-bold font-mono uppercase tracking-wider transition">
-                            💰 Deposit
-                        </button>
+                            class="tab-btn px-4 py-1.5 rounded-lg text-xs font-bold font-mono uppercase tracking-wider transition">💰
+                            Deposit</button>
                         <button id="tab-audit" onclick="switchSubView('audit')"
-                            class="tab-btn px-4 py-1.5 rounded-lg text-xs font-bold font-mono uppercase tracking-wider transition hidden">
-                            🛡️ Treasurer Desk
-                        </button>
+                            class="tab-btn px-4 py-1.5 rounded-lg text-xs font-bold font-mono uppercase tracking-wider transition hidden">🛡️
+                            Treasurer Desk</button>
                     </div>
 
                     <div id="view-overview" class="sub-view p-6 space-y-6">
@@ -154,24 +162,21 @@
                         <div id="member-panel" class="w-full"></div>
 
                         <div class="pt-4 border-t border-slate-900 max-w-md">
-                            <h4 class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-2.5">Identity
-                                profile</h4>
+                            <h4 class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-2.5">Profile</h4>
                             <div class="flex gap-2">
-                                <input id="settings-profile-name" type="text" placeholder="Full Account Name"
+                                <input id="settings-profile-name" type="text" placeholder="Your full name"
                                     class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-white focus:outline-none focus:border-emerald-500/50 transition font-mono text-base sm:text-xs">
                                 <button id="btn-save-profile"
-                                    class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-700 transition shrink-0">
-                                    Sync Identity
-                                </button>
+                                    class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-700 transition shrink-0">Save
+                                    name</button>
                             </div>
                         </div>
                     </div>
 
                     <div id="view-deposit" class="sub-view p-6 hidden max-w-xl mx-auto w-full space-y-6">
                         <div class="text-center space-y-1">
-                            <h3 class="text-base font-bold text-white">Submit Deposit</h3>
-                            <p class="text-xs text-slate-400">File transaction reference details securely into the
-                                ledger.</p>
+                            <h3 class="text-base font-bold text-white">Make a deposit</h3>
+                            <p class="text-xs text-slate-400">Enter your payment details below.</p>
                         </div>
 
                         <div id="deposit-status-wrapper"></div>
@@ -180,16 +185,14 @@
                             class="bg-slate-900 border border-slate-800 p-5 rounded-xl space-y-4 shadow-inner">
                             <div>
                                 <label
-                                    class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5">Target
-                                    Value</label>
+                                    class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5">Amount</label>
                                 <input id="tx-amount" type="text" readonly disabled
                                     class="w-full bg-slate-950 border border-slate-800 text-slate-500 rounded-xl px-3 py-2 font-mono text-base sm:text-xs focus:outline-none select-none">
                             </div>
 
                             <div>
                                 <label for="tx-bank"
-                                    class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5">Receiving
-                                    Bank</label>
+                                    class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5">Bank</label>
                                 <select id="tx-bank"
                                     class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl px-3 py-2 font-mono text-base sm:text-xs focus:outline-none focus:border-emerald-500/50">
                                     <option value="Access Bank">Access Bank PLC</option>
@@ -202,27 +205,24 @@
 
                             <div>
                                 <label for="tx-ref"
-                                    class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5">Transaction
-                                    Reference</label>
-                                <input id="tx-ref" type="text" placeholder="Paste structural reference sequence string"
-                                    required
+                                    class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5">Reference
+                                    code</label>
+                                <input id="tx-ref" type="text" placeholder="Enter reference code" required
                                     class="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 font-mono text-base sm:text-xs focus:outline-none focus:border-emerald-500/50 transition">
                             </div>
 
                             <button type="submit"
-                                class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition shadow-md shadow-emerald-900/10">
-                                Dispatch Deposit Log
-                            </button>
+                                class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition shadow-md shadow-emerald-900/10">Submit
+                                deposit</button>
                         </form>
                     </div>
 
                     <div id="view-audit" class="sub-view p-6 hidden space-y-8">
                         <div class="space-y-3">
                             <div>
-                                <h3 class="text-xs font-mono text-slate-400 uppercase tracking-wider">Verification Desk
+                                <h3 class="text-xs font-mono text-slate-400 uppercase tracking-wider">Treasurer Desk
                                 </h3>
-                                <p class="text-[11px] text-slate-500">Examine ledger submissions and approve active
-                                    pools.</p>
+                                <p class="text-[11px] text-slate-500">Review and approve pending deposits.</p>
                             </div>
 
                             <div class="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/20">
@@ -230,9 +230,9 @@
                                     <thead
                                         class="bg-slate-900/80 border-b border-slate-800 text-[10px] font-mono text-slate-400 uppercase tracking-wider">
                                         <tr>
-                                            <th class="p-3">Logged</th>
-                                            <th class="p-3">Account</th>
-                                            <th class="p-3">Reference details</th>
+                                            <th class="p-3">Time</th>
+                                            <th class="p-3">Member</th>
+                                            <th class="p-3">Details</th>
                                             <th class="p-3 text-right">Actions</th>
                                         </tr>
                                     </thead>
@@ -244,9 +244,9 @@
                         <div id="treasurer-settings-block"
                             class="hidden pt-6 border-t border-slate-900 space-y-4 max-w-xl">
                             <div>
-                                <h3 class="text-xs font-mono text-slate-400 uppercase tracking-wider">Circle
-                                    Configuration</h3>
-                                <p class="text-[11px] text-slate-500">Modify properties of this active ledger.</p>
+                                <h3 class="text-xs font-mono text-slate-400 uppercase tracking-wider">Circle Settings
+                                </h3>
+                                <p class="text-[11px] text-slate-500">Update this circle's details.</p>
                             </div>
 
                             <div id="group-config-panel"
@@ -254,15 +254,15 @@
                                 <div>
                                     <label for="edit-group-name"
                                         class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-1">Circle
-                                        Name</label>
+                                        name</label>
                                     <input id="edit-group-name" type="text"
                                         class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-white font-mono text-base sm:text-xs focus:outline-none">
                                 </div>
 
                                 <div>
                                     <label for="edit-group-amount"
-                                        class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-1">Cycle
-                                        Goal (₦)</label>
+                                        class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-1">Goal
+                                        amount (₦)</label>
                                     <input id="edit-group-amount" type="number"
                                         class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-white font-mono text-base sm:text-xs focus:outline-none">
                                 </div>
@@ -276,17 +276,14 @@
 
                                 <div class="flex flex-wrap gap-2 pt-1">
                                     <button id="btn-save-group-config"
-                                        class="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white font-mono text-[10px] font-bold py-1.5 px-3 rounded-lg border border-emerald-500/20 transition uppercase tracking-wider">
-                                        Save Changes
-                                    </button>
+                                        class="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white font-mono text-[10px] font-bold py-1.5 px-3 rounded-lg border border-emerald-500/20 transition uppercase tracking-wider">Save
+                                        settings</button>
                                     <button id="btn-archive-group" type="button"
-                                        class="bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white font-mono text-[10px] font-bold py-1.5 px-3 rounded-lg border border-rose-500/20 transition uppercase tracking-wider">
-                                        📦 Archive Circle
-                                    </button>
+                                        class="bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white font-mono text-[10px] font-bold py-1.5 px-3 rounded-lg border border-rose-500/20 transition uppercase tracking-wider">📦
+                                        Archive circle</button>
                                     <button id="btn-copy-invite" type="button"
-                                        class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-[10px] font-bold py-1.5 px-3 rounded-lg border border-slate-700 transition uppercase tracking-wider">
-                                        📋 Copy Link
-                                    </button>
+                                        class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-[10px] font-bold py-1.5 px-3 rounded-lg border border-slate-700 transition uppercase tracking-wider">📋
+                                        Copy link</button>
                                 </div>
                             </div>
                         </div>
@@ -304,17 +301,16 @@
 
             <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 backdrop-blur">
                 <div>
-                    <h3 class="text-xs font-mono text-slate-400 uppercase tracking-wider">All Connected Circles</h3>
-                    <p class="text-[11px] text-slate-500">Switch between your active peer ledger nodes.</p>
+                    <h3 class="text-xs font-mono text-slate-400 uppercase tracking-wider">All Circles</h3>
+                    <p class="text-[11px] text-slate-500">Switch to another active circle.</p>
                 </div>
                 <button onclick="closeCirclesDrawer()"
-                    class="text-slate-400 hover:text-white font-mono text-xs p-1 hover:bg-slate-800 rounded-lg transition px-2">
-                    ✕ Close
-                </button>
+                    class="text-slate-400 hover:text-white font-mono text-xs p-1 hover:bg-slate-800 rounded-lg transition px-2">✕
+                    Close</button>
             </div>
 
             <div class="p-3 border-b border-slate-800/60 bg-slate-950/40">
-                <input id="drawer-search-input" type="text" placeholder="Fuzzy search active circles..."
+                <input id="drawer-search-input" type="text" placeholder="Search circles..."
                     oninput="filterDrawerCircles()"
                     class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-emerald-500/50 transition">
             </div>
