@@ -65,7 +65,7 @@
     <div class="relative z-10 min-h-full flex flex-col">
 
         <div id="auth-view" class="hidden min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8 px-4">
-            <div class="sm:mx-auto sm:w-full sm:max-w-md text-center">
+            <div class="sm:mx-auto Sm:w-full sm:max-w-md text-center">
                 <span
                     class="text-xs font-mono px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-widest">Sign
                     In</span>
@@ -225,19 +225,29 @@
                                 <p class="text-[11px] text-slate-500">Review and approve pending deposits.</p>
                             </div>
 
-                            <div class="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/20">
-                                <table class="w-full text-left border-collapse">
-                                    <thead
-                                        class="bg-slate-900/80 border-b border-slate-800 text-[10px] font-mono text-slate-400 uppercase tracking-wider">
-                                        <tr>
-                                            <th class="p-3">Time</th>
-                                            <th class="p-3">Member</th>
-                                            <th class="p-3">Details</th>
-                                            <th class="p-3 text-right">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="audit-feed-rows"></tbody>
-                                </table>
+                            <div id="audit-feed-present" class="hidden space-y-3">
+                                <div id="audit-feed-cards" class="block md:hidden space-y-3"></div>
+
+                                <div id="audit-feed-table-wrapper"
+                                    class="hidden md:block border border-slate-800 rounded-xl overflow-hidden bg-slate-900/20">
+                                    <table class="w-full text-left border-collapse">
+                                        <thead
+                                            class="bg-slate-900/80 border-b border-slate-800 text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                                            <tr>
+                                                <th class="p-3">Time</th>
+                                                <th class="p-3">Member</th>
+                                                <th class="p-3">Details</th>
+                                                <th class="p-3 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="audit-feed-rows" class="divide-y divide-slate-800/40"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div id="audit-feed-empty"
+                                class="hidden p-6 text-center text-xs text-slate-500 italic border border-dashed border-slate-800 rounded-xl bg-slate-900/10">
+                                All caught up! No pending deposits.
                             </div>
                         </div>
 

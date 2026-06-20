@@ -52,7 +52,7 @@ function initAuthListeners() {
 }
 
 // ==========================================================
-// 4. CONTEXTUAL ROLE RECALCULATOR & FILTER ENGINE
+// 4. CONTEXTUAL ROLE RECALCULATOR & MEMBERSHIP ENGAGEMENT
 // ==========================================================
 async function syncUserProfileAndGroupRole() {
     try {
@@ -74,6 +74,15 @@ async function syncUserProfileAndGroupRole() {
             profile = newProfile;
         }
         state.userProfile = profile;
+
+        // NEW ARCHITECTURE: Formalize and lock-in membership instantly if visiting an invite link
+        if (state.currentGroup.id) {
+            await supabase
+                .from('coop_group_members')
+                .upsert([
+                    { group_id: state.currentGroup.id, user_id: state.sessionUser.id }
+                ], { onConflict: 'group_id,user_id' });
+        }
 
         await fetchIsolateWorkspaces();
 
@@ -134,40 +143,34 @@ async function syncUserProfileAndGroupRole() {
 }
 
 // ==========================================================
-// 5. SECURITY DISCOVERY: FETCHING ONLY JOINED/OWNED GROUPS
+// 5. STABLE WORKSPACE DISCOVERY LOGIC (JUNCTION-BASED)
 // ==========================================================
 async function fetchIsolateWorkspaces() {
     try {
-        const { data: ownedGroups } = await supabase
+        // 1. Pull all verified group membership boundaries for this specific user
+        const { data: membershipRecords, error: memberError } = await supabase
+            .from('coop_group_members')
+            .select('group_id')
+            .eq('user_id', state.sessionUser.id);
+
+        if (memberError) throw memberError;
+
+        if (!membershipRecords || membershipRecords.length === 0) {
+            state.userCirclesList = [];
+            return;
+        }
+
+        const joinedGroupIds = membershipRecords.map(record => record.group_id);
+
+        // 2. Fetch standard group layout configuration parameters safely
+        const { data: crossFilteredGroups, error: groupError } = await supabase
             .from('coop_groups')
             .select('*')
-            .eq('created_by', state.sessionUser.id);
-
-        const { data: joinedTx } = await supabase
-            .from('coop_contributions')
-            .select('group_id')
-            .eq('member_id', state.sessionUser.id);
-
-        const joinedIds = joinedTx ? joinedTx.map(t => t.group_id) : [];
-
-        if (urlGroupId) {
-            joinedIds.push(urlGroupId);
-        }
-
-        let query = supabase.from('coop_groups').select('*');
-
-        if ((ownedGroups && ownedGroups.length > 0) || joinedIds.length > 0) {
-            const dynamicFilters = [];
-            if (state.sessionUser.id) dynamicFilters.push(`created_by.eq.${state.sessionUser.id}`);
-            if (joinedIds.length > 0) dynamicFilters.push(`id.in.(${joinedIds.join(',')})`);
-            query = query.or(dynamicFilters.join(','));
-        } else {
-            query = query.eq('id', 'FORCE_EMPTY_SET');
-        }
-
-        const { data: crossFilteredGroups } = await query
+            .in('id', joinedGroupIds)
             .eq('is_archived', false)
             .order('created_at', { ascending: false });
+
+        if (groupError) throw groupError;
 
         state.userCirclesList = crossFilteredGroups || [];
     } catch (err) {
@@ -466,7 +469,7 @@ async function renderInterfacePanels() {
                 submitBtn.className = "w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition shadow-md shadow-emerald-900/10";
             }
             if (txRefInput) { txRefInput.disabled = false; txRefInput.value = ''; }
-            if (txBankInput) txBankInput.disabled = false;
+            if (txBankInput) { txBankInput.disabled = false; }
         }
     }
 }
@@ -584,8 +587,12 @@ async function handleArchiveGroup() {
 // 11. AUDIT RECONCILIATION GATE
 // ==========================================================
 async function fetchAndRenderAuditFeed() {
-    const feedContainer = document.getElementById('audit-feed-rows');
-    if (!feedContainer) return;
+    const presentContainer = document.getElementById('audit-feed-present');
+    const cardsContainer = document.getElementById('audit-feed-cards');
+    const rowsContainer = document.getElementById('audit-feed-rows');
+    const emptyState = document.getElementById('audit-feed-empty');
+
+    if (!presentContainer || !cardsContainer || !rowsContainer || !emptyState) return;
 
     const { data: pendingRows } = await supabase
         .from('coop_contributions')
@@ -595,23 +602,54 @@ async function fetchAndRenderAuditFeed() {
         .eq('status', 'PENDING_VERIFICATION');
 
     if (!pendingRows || pendingRows.length === 0) {
-        feedContainer.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-xs text-slate-500 italic">All caught up! No pending deposits.</td></tr>`;
+        presentContainer.classList.add('hidden');
+        emptyState.classList.remove('hidden');
         return;
     }
 
-    feedContainer.innerHTML = pendingRows.map(row => `
-        <tr class="border-b border-slate-800 hover:bg-slate-900/40 text-xs">
-            <td class="p-4 font-mono text-slate-500">${new Date(row.created_at).toLocaleTimeString()}</td>
-            <td class="p-4 font-bold text-white">${row.sender_account_name}</td>
-            <td class="p-4">
-                <span class="block font-mono text-emerald-400 font-bold">${row.payment_reference}</span>
-                <span class="text-[10px] text-slate-400">${row.sender_bank_name} | ₦${(row.amount || 0).toLocaleString()}</span> 
+    presentContainer.classList.remove('hidden');
+    emptyState.classList.add('hidden');
+
+    cardsContainer.innerHTML = pendingRows.map(row => `
+        <div class="border border-slate-800 bg-slate-900/30 rounded-xl p-4 flex items-center justify-between gap-4 text-xs animate-fade-in">
+            <div class="space-y-1 min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                    <span class="font-bold text-white truncate text-sm">${row.sender_account_name}</span>
+                    <span class="font-mono text-[10px] text-slate-500 shrink-0">
+                        ${new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                </div>
+                <div class="space-y-0.5">
+                    <span class="block font-mono text-emerald-400 font-bold break-all select-all">${row.payment_reference}</span>
+                    <span class="text-[10px] text-slate-400 block">
+                        ${row.sender_bank_name} • <span class="font-mono font-bold text-slate-300">₦${(row.amount || 0).toLocaleString()}</span>
+                    </span> 
+                </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+                <button onclick="approveTransaction(this, '${row.id}')" title="Approve" aria-label="Approve" class="h-9 w-9 flex items-center justify-center bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded-xl transition active:scale-95 duration-100 border border-emerald-500/10">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4.5 h-4.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                </button>
+                <button onclick="rejectAndEraseTransaction(this, '${row.id}')" title="Delete" aria-label="Delete" class="h-9 w-9 flex items-center justify-center bg-rose-600/10 hover:bg-rose-600 text-rose-400 hover:text-white rounded-xl transition active:scale-95 duration-100 border border-rose-500/10">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4.5 h-4.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                </button>
+            </div>
+        </div>
+    `).join('');
+
+    rowsContainer.innerHTML = pendingRows.map(row => `
+        <tr class="hover:bg-slate-900/10 text-xs transition border-b border-slate-800/40">
+            <td class="p-3 font-mono text-slate-500">${new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+            <td class="p-3 font-bold text-white max-w-[140px] truncate">${row.sender_account_name}</td>
+            <td class="p-3">
+                <span class="block font-mono text-emerald-400 font-bold tracking-wide">${row.payment_reference}</span>
+                <span class="text-[11px] text-slate-400 block mt-0.5">${row.sender_bank_name} • ₦${(row.amount || 0).toLocaleString()}</span> 
             </td>
-            <td class="p-4 text-right space-x-1.5 whitespace-nowrap">
-                <button onclick="approveTransaction(this, '${row.id}')" class="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white text-[10px] font-bold py-1 px-2.5 rounded-lg transition-all active:scale-95 duration-100 shadow-sm">
+            <td class="p-3 text-right space-x-2 whitespace-nowrap">
+                <button onclick="approveTransaction(this, '${row.id}')" class="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white text-[11px] font-bold py-1.5 px-3 rounded-lg transition active:scale-95 duration-100 shadow-sm">
                     Approve
                 </button>
-                <button onclick="rejectAndEraseTransaction(this, '${row.id}')" class="bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white text-[10px] font-bold py-1 px-2.5 rounded-lg transition-all active:scale-95 duration-100 shadow-sm">
+                <button onclick="rejectAndEraseTransaction(this, '${row.id}')" class="bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white text-[11px] font-bold py-1.5 px-3 rounded-lg transition active:scale-95 duration-100 shadow-sm">
                     Delete
                 </button>
             </td>
@@ -621,11 +659,23 @@ async function fetchAndRenderAuditFeed() {
 
 async function approveTransaction(buttonElement, id) {
     buttonElement.disabled = true;
-    buttonElement.innerText = "Processing...";
+    const originalHtml = buttonElement.innerHTML;
+
+    if (!buttonElement.querySelector('svg')) {
+        buttonElement.innerText = "Processing...";
+    } else {
+        buttonElement.classList.add('opacity-40');
+    }
+
     const { error } = await supabase.from('coop_contributions').update({ status: 'APPROVED' }).eq('id', id);
     if (!error) {
         executeAjoEnginePipeline();
         await renderInterfacePanels();
+    } else {
+        alert("Error: " + error.message);
+        buttonElement.disabled = false;
+        buttonElement.innerHTML = originalHtml;
+        buttonElement.classList.remove('opacity-40');
     }
 }
 
@@ -633,7 +683,13 @@ async function rejectAndEraseTransaction(buttonElement, id) {
     if (!confirm("Permanently delete this entry?")) return;
 
     buttonElement.disabled = true;
-    buttonElement.innerText = "Erasing...";
+    const originalHtml = buttonElement.innerHTML;
+
+    if (!buttonElement.querySelector('svg')) {
+        buttonElement.innerText = "Erasing...";
+    } else {
+        buttonElement.classList.add('opacity-40');
+    }
 
     const { error } = await supabase
         .from('coop_contributions')
@@ -647,7 +703,8 @@ async function rejectAndEraseTransaction(buttonElement, id) {
     } else {
         alert("Error: " + error.message);
         buttonElement.disabled = false;
-        buttonElement.innerText = "Delete";
+        buttonElement.innerHTML = originalHtml;
+        buttonElement.classList.remove('opacity-40');
     }
 }
 
@@ -795,6 +852,14 @@ async function handleCreateGroupWizard() {
         }]);
 
     if (!error) {
+        // NEW ARCHITECTURE: Ensure the workspace creator is immediately logged as a formal member
+        await supabase
+            .from('coop_group_members')
+            .insert([{
+                group_id: generatedGroupId,
+                user_id: state.sessionUser.id
+            }]);
+
         alert(`🎯 Circle created!`);
         await switchCircleWorkspace(generatedGroupId);
     }
