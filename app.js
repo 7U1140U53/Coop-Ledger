@@ -3,7 +3,9 @@
 // ==========================================================
 const SUPABASE_URL = window.SUPABASE_CONFIG.URL;
 const SUPABASE_ANON_KEY = window.SUPABASE_CONFIG.ANON_KEY;
-window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    db: { schema: 'coop_ledger' }
+});
 
 // ==========================================================
 // 2. GLOBAL STATE MATRIX WITH CONTEXT-DRIVEN ROLES
@@ -58,6 +60,9 @@ async function syncUserProfileAndGroupRole() {
     try {
         if (!state.sessionUser) return;
 
+        // ------------------------------------------
+        // Load or create the user's profile
+        // ------------------------------------------
         let { data: profile } = await supabase
             .from('coop_profiles')
             .select('*')
@@ -65,32 +70,69 @@ async function syncUserProfileAndGroupRole() {
             .maybeSingle();
 
         if (!profile) {
-            const tempName = state.sessionUser.email.split('@')[0].toUpperCase();
-            const { data: newProfile } = await supabase
+            const tempName = state.sessionUser.email
+                .split('@')[0]
+                .toUpperCase();
+
+            const {
+                data: newProfile,
+                error: profileInsertError
+            } = await supabase
                 .from('coop_profiles')
-                .insert([{ id: state.sessionUser.id, full_name: tempName, role: 'MEMBER' }])
+                .insert([
+                    {
+                        id: state.sessionUser.id,
+                        full_name: tempName,
+                        role: 'MEMBER'
+                    }
+                ])
                 .select()
                 .single();
+
+            if (profileInsertError) {
+                throw profileInsertError;
+            }
+
             profile = newProfile;
         }
+
         state.userProfile = profile;
 
-        // NEW ARCHITECTURE: Formalize and lock-in membership instantly if visiting an invite link
+        // ------------------------------------------
+        // Automatically join the group when visiting
+        // an invite link
+        // ------------------------------------------
         if (state.currentGroup.id) {
             await supabase
                 .from('coop_group_members')
-                .upsert([
-                    { group_id: state.currentGroup.id, user_id: state.sessionUser.id }
-                ], { onConflict: 'group_id,user_id' });
+                .upsert(
+                    [
+                        {
+                            group_id: state.currentGroup.id,
+                            user_id: state.sessionUser.id
+                        }
+                    ],
+                    {
+                        onConflict: 'group_id,user_id',
+                        ignoreDuplicates: true
+                    }
+                );
         }
 
+        // ------------------------------------------
+        // Load user's circles
+        // ------------------------------------------
         await fetchIsolateWorkspaces();
 
         if (!state.currentGroup.id && state.userCirclesList.length > 0) {
             state.currentGroup.id = state.userCirclesList[0].id;
         }
 
+        // ------------------------------------------
+        // Load current group
+        // ------------------------------------------
         if (state.currentGroup.id) {
+
             const { data: groupData } = await supabase
                 .from('coop_groups')
                 .select('*')
@@ -98,47 +140,88 @@ async function syncUserProfileAndGroupRole() {
                 .maybeSingle();
 
             if (groupData && !groupData.is_archived) {
+
                 state.currentGroup.name = groupData.group_name;
                 state.currentGroup.contributionAmount = groupData.contribution_amount;
                 state.currentGroup.currentRound = groupData.current_round;
                 state.currentGroup.createdBy = groupData.created_by;
-                state.currentGroup.description = groupData.description || "No description set.";
+                state.currentGroup.description =
+                    groupData.description || "No description set.";
 
-                state.effectiveRole = (state.currentGroup.createdBy === state.sessionUser.id) ? 'TREASURER' : 'MEMBER';
+                state.effectiveRole =
+                    groupData.created_by === state.sessionUser.id
+                        ? 'TREASURER'
+                        : 'MEMBER';
+
             } else {
+
                 state.currentGroup.id = null;
                 state.effectiveRole = 'MEMBER';
+
             }
         }
 
+        // ------------------------------------------
+        // Show / hide Treasurer controls
+        // ------------------------------------------
         if (state.effectiveRole === 'TREASURER') {
-            document.getElementById('tab-audit')?.classList.remove('hidden');
-            document.getElementById('treasurer-settings-block')?.classList.remove('hidden');
-            document.getElementById('group-config-panel')?.classList.remove('hidden');
+
+            document.getElementById('tab-audit')
+                ?.classList.remove('hidden');
+
+            document.getElementById('treasurer-settings-block')
+                ?.classList.remove('hidden');
+
+            document.getElementById('group-config-panel')
+                ?.classList.remove('hidden');
 
             const nameField = document.getElementById('edit-group-name');
             const amtField = document.getElementById('edit-group-amount');
             const descField = document.getElementById('edit-group-desc');
 
-            if (nameField) nameField.value = state.currentGroup.name;
-            if (amtField) amtField.value = state.currentGroup.contributionAmount;
-            if (descField) descField.value = state.currentGroup.description;
+            if (nameField) {
+                nameField.value = state.currentGroup.name;
+            }
+
+            if (amtField) {
+                amtField.value = state.currentGroup.contributionAmount;
+            }
+
+            if (descField) {
+                descField.value = state.currentGroup.description;
+            }
+
         } else {
-            document.getElementById('tab-audit')?.classList.add('hidden');
-            document.getElementById('treasurer-settings-block')?.classList.add('hidden');
-            document.getElementById('group-config-panel')?.classList.add('hidden');
+
+            document.getElementById('tab-audit')
+                ?.classList.add('hidden');
+
+            document.getElementById('treasurer-settings-block')
+                ?.classList.add('hidden');
+
+            document.getElementById('group-config-panel')
+                ?.classList.add('hidden');
         }
 
-        if (document.getElementById('settings-profile-name')) {
-            document.getElementById('settings-profile-name').value = state.userProfile.full_name || '';
+        // ------------------------------------------
+        // Populate profile settings
+        // ------------------------------------------
+        const profileNameField = document.getElementById('settings-profile-name');
+
+        if (profileNameField) {
+            profileNameField.value = state.userProfile.full_name || '';
         }
 
+        // ------------------------------------------
+        // Refresh UI
+        // ------------------------------------------
         renderAuthBadge();
         renderCirclesHubDeck();
         await renderInterfacePanels();
         executeAjoEnginePipeline();
+
     } catch (err) {
-        console.error("Profile Synchronization Error:", err.message);
+        console.error("Profile Synchronization Error:", err);
     }
 }
 
@@ -147,7 +230,6 @@ async function syncUserProfileAndGroupRole() {
 // ==========================================================
 async function fetchIsolateWorkspaces() {
     try {
-        // 1. Pull all verified group membership boundaries for this specific user
         const { data: membershipRecords, error: memberError } = await supabase
             .from('coop_group_members')
             .select('group_id')
@@ -162,7 +244,6 @@ async function fetchIsolateWorkspaces() {
 
         const joinedGroupIds = membershipRecords.map(record => record.group_id);
 
-        // 2. Fetch standard group layout configuration parameters safely
         const { data: crossFilteredGroups, error: groupError } = await supabase
             .from('coop_groups')
             .select('*')
@@ -338,7 +419,8 @@ async function executeAjoEnginePipeline() {
             electedCollector = contributions[0].coop_profiles?.full_name || contributions[0].sender_account_name || "Member";
         }
 
-        renderGlobalAjoBanner(electedCollector, contributions ? contributions.length : 0);
+        const totalPoolValueCollected = contributions ? contributions.reduce((sum, item) => sum + (Number(item.amount) || 0), 0) : 0;
+        renderGlobalAjoBanner(electedCollector, totalPoolValueCollected);
 
         if (state.effectiveRole === 'TREASURER') {
             await fetchAndRenderAuditFeed();
@@ -349,7 +431,7 @@ async function executeAjoEnginePipeline() {
 }
 
 // ==========================================================
-// 8. INTERFACE PANEL HYDRATION
+// 8. INTERFACE PANEL HYDRATION (REFACETORED & FIXED)
 // ==========================================================
 async function renderInterfacePanels() {
     const mPanel = document.getElementById('member-panel');
@@ -359,25 +441,66 @@ async function renderInterfacePanels() {
     const txRefInput = document.getElementById('tx-ref');
     const txBankInput = document.getElementById('tx-bank');
 
-    if (txAmountInput) {
-        txAmountInput.value = `₦ ${(state.currentGroup.contributionAmount || 0).toLocaleString()}`;
-    }
-
     if (!state.currentGroup.id) {
         if (mPanel) mPanel.innerHTML = `<div class="p-6 text-center text-slate-500 italic w-full">Select a circle to view stats.</div>`;
         return;
     }
 
-    const { data: userLog } = await supabase
+    // Pull transaction logs first to check historical state parameters
+    const { data: userLogs } = await supabase
         .from('coop_contributions')
         .select('status, payment_reference, sender_bank_name, amount, created_at')
         .eq('group_id', state.currentGroup.id)
         .eq('round_number', state.currentGroup.currentRound)
         .eq('member_id', state.sessionUser.id)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
+    
+    const userLog = userLogs?.[0] ?? null;
+
+    // CONTEXTUAL DISPLAY FIX: Isolates actual logged deposit sums from template updates
+    if (txAmountInput) {
+        const functionalDisplayAmount = userLog && userLog.amount
+            ? userLog.amount
+            : (state.currentGroup.contributionAmount || 0);
+        txAmountInput.value = `₦ ${functionalDisplayAmount.toLocaleString()}`;
+    }
 
     if (userLog) {
-        const isApproved = userLog.status === 'APPROVED';
+            const contributionStatus = userLog.status;
+
+        const badgeMap = {
+            APPROVED: {
+                label: "Approved",
+                badge: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+                icon: "🧾",
+                heading: "Deposit verified",
+                message: "Your deposit has been approved and added to the pool.",
+                refColor: "text-emerald-400"
+            },
+
+            PENDING_VERIFICATION: {
+                label: "Pending approval",
+                badge: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+                icon: "⏳",
+                heading: "Deposit pending",
+                message: "Your payment reference is under review.",
+                refColor: "text-amber-400"
+            },
+
+            REJECTED: {
+                label: "Rejected",
+                badge: "bg-rose-500/10 text-rose-400 border border-rose-500/20",
+                icon: "❌",
+                heading: "Deposit rejected",
+                message: "Your previous submission could not be verified. Please submit a new payment reference below.",
+                refColor: "text-rose-400"
+            }
+        };
+
+        const statusUI =
+            badgeMap[contributionStatus] ??
+            badgeMap.PENDING_VERIFICATION;
         const displayRef = userLog.payment_reference || "N/A";
         const displayBank = userLog.sender_bank_name || "Direct Wire";
         const displayAmt = userLog.amount ? userLog.amount.toLocaleString() : (state.currentGroup.contributionAmount || 0).toLocaleString();
@@ -388,11 +511,8 @@ async function renderInterfacePanels() {
                 <div class="border border-slate-800 bg-slate-900/20 rounded-xl p-5 space-y-4 animate-fade-in">
                     <div class="flex items-center justify-between border-b border-slate-900 pb-3">
                         <h3 class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">Your Status</h3>
-                        <span class="text-[10px] font-mono px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider
-                            ${isApproved
-                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
-                            ● ${isApproved ? 'Approved' : 'Pending approval'}
+                        <span class="text-[10px] font-mono px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${statusUI.badge}">
+                        ● ${statusUI.label}
                         </span>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -406,7 +526,7 @@ async function renderInterfacePanels() {
                         </div>
                         <div class="bg-slate-950 p-3 rounded-lg border border-slate-900/60">
                             <span class="text-[10px] text-slate-500 block uppercase font-mono mb-1">Reference</span>
-                            <span class="text-xs font-mono font-bold text-emerald-400 block truncate" title="${displayRef}">${displayRef}</span>
+                            <span class="text-xs font-mono font-bold ${statusUI.refColor} block truncate" title="${displayRef}">${displayRef}</span>
                         </div>
                     </div>
                     <div class="flex justify-between items-center text-[10px] text-slate-500 font-mono pt-1">
@@ -420,17 +540,15 @@ async function renderInterfacePanels() {
         if (depositStatusWrapper) {
             depositStatusWrapper.innerHTML = `
                 <div class="border border-dashed border-slate-800 bg-slate-900/30 rounded-xl p-6 text-center max-w-md mx-auto space-y-3 mb-6 animate-fade-in">
-                    <div class="text-xl">${isApproved ? '🧾' : '⏳'}</div>
+                    <div class="text-xl">${statusUI.icon}</div>
                     <h4 class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
-                        ${isApproved ? 'Deposit verified' : 'Deposit pending'}
+                      ${statusUI.heading}
                     </h4>
                     <p class="text-xs text-slate-400 leading-relaxed">
-                        ${isApproved
-                    ? 'Your deposit has been approved and added to the pool.'
-                    : 'Your payment reference is under review.'}
+                        ${statusUI.message}
                     </p>
                     <div class="inline-block bg-slate-950 px-3 py-1.5 rounded font-mono text-[11px] border border-slate-900 text-slate-400">
-                        REF: <span class="${isApproved ? 'text-emerald-400' : 'text-amber-400'} font-bold">${displayRef}</span>
+                        REF:<span class="${statusUI.refColor} font-bold">${displayRef} </span>
                     </div>
                 </div>
             `;
@@ -439,13 +557,26 @@ async function renderInterfacePanels() {
         if (depositForm) {
             depositForm.classList.remove('hidden');
             const submitBtn = depositForm.querySelector('button[type="submit"]');
+            const isLocked = contributionStatus !== "REJECTED";
             if (submitBtn) {
-                submitBtn.disabled = true;
+                submitBtn.disabled = isLocked;
+            if (isLocked) {
                 submitBtn.innerText = "🔒 Locked for this round";
                 submitBtn.className = "w-full bg-slate-800 text-slate-500 font-mono text-xs font-bold py-2.5 px-4 rounded-xl border border-slate-700 cursor-not-allowed transition";
+            } else {
+                submitBtn.innerText = "Submit New deposit";
+                submitBtn.className = "w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition shadow-md shadow-emerald-900/10";
+
             }
-            if (txRefInput) txRefInput.disabled = true;
-            if (txBankInput) txBankInput.disabled = true;
+        }
+            if (txRefInput){ 
+                txRefInput.disabled = isLocked;
+                if (!isLocked) txRefInput.value = "";
+        }
+            if (txBankInput) {
+                txBankInput.disabled = isLocked;
+                if (!isLocked) txBankInput.value = "";
+            }
         }
 
     } else {
@@ -532,6 +663,7 @@ function setupFormHandlers() {
     document.getElementById('btn-save-profile')?.addEventListener('click', handleUpdateProfileName);
     document.getElementById('btn-save-group-config')?.addEventListener('click', handleUpdateGroupConfig);
     document.getElementById('btn-archive-group')?.addEventListener('click', handleArchiveGroup);
+    document.getElementById('btn-force-close-round')?.addEventListener('click', handleForceCloseRound);
 }
 
 // ==========================================================
@@ -564,23 +696,38 @@ async function handleUpdateGroupConfig() {
 
 async function handleArchiveGroup() {
     if (!state.currentGroup.id) return;
-    if (!confirm("🚨 Archive this circle? It will be hidden from your dashboard.")) return;
 
-    const archiveBtn = document.getElementById('btn-archive-group');
+    if (!confirm("🚨 Archive this circle? It will be hidden from your dashboard.")) {
+        return;
+    }
+
+    const archiveBtn = document.getElementById("btn-archive-group");
     if (archiveBtn) archiveBtn.disabled = true;
 
-    const { error } = await supabase
-        .from('coop_groups')
+    const { data, error } = await supabase
+        .from("coop_groups")
         .update({ is_archived: true })
-        .eq('id', state.currentGroup.id);
+        .eq("id", state.currentGroup.id)
+        .select();
 
     if (error) {
-        alert("Error: " + error.message);
+        console.error(error);
+        alert("Unable to archive circle.");
         if (archiveBtn) archiveBtn.disabled = false;
-    } else {
-        alert("📦 Circle archived.");
-        window.location.search = "";
+        return;
     }
+
+    // Safety check: update succeeded but no rows changed
+    if (!data || data.length === 0) {
+        alert("No circle was archived.");
+        if (archiveBtn) archiveBtn.disabled = false;
+        return;
+    }
+
+    alert("📦 Circle archived.");
+
+    // Reload dashboard
+    window.location.search = "";
 }
 
 // ==========================================================
@@ -630,7 +777,7 @@ async function fetchAndRenderAuditFeed() {
                 <button onclick="approveTransaction(this, '${row.id}')" title="Approve" aria-label="Approve" class="h-9 w-9 flex items-center justify-center bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded-xl transition active:scale-95 duration-100 border border-emerald-500/10">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4.5 h-4.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
                 </button>
-                <button onclick="rejectAndEraseTransaction(this, '${row.id}')" title="Delete" aria-label="Delete" class="h-9 w-9 flex items-center justify-center bg-rose-600/10 hover:bg-rose-600 text-rose-400 hover:text-white rounded-xl transition active:scale-95 duration-100 border border-rose-500/10">
+                <button onclick="rejectTransaction(this, '${row.id}')" title="Reject" aria-label="Reject" class="h-9 w-9 flex items-center justify-center bg-rose-600/10 hover:bg-rose-600 text-rose-400 hover:text-white rounded-xl transition active:scale-95 duration-100 border border-rose-500/10">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4.5 h-4.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                 </button>
             </div>
@@ -649,8 +796,8 @@ async function fetchAndRenderAuditFeed() {
                 <button onclick="approveTransaction(this, '${row.id}')" class="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white text-[11px] font-bold py-1.5 px-3 rounded-lg transition active:scale-95 duration-100 shadow-sm">
                     Approve
                 </button>
-                <button onclick="rejectAndEraseTransaction(this, '${row.id}')" class="bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white text-[11px] font-bold py-1.5 px-3 rounded-lg transition active:scale-95 duration-100 shadow-sm">
-                    Delete
+                <button onclick="rejectTransaction(this, '${row.id}')" class="bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white text-[11px] font-bold py-1.5 px-3 rounded-lg transition active:scale-95 duration-100 shadow-sm">
+                    Reject
                 </button>
             </td>
         </tr>
@@ -658,60 +805,107 @@ async function fetchAndRenderAuditFeed() {
 }
 
 async function approveTransaction(buttonElement, id) {
-    buttonElement.disabled = true;
     const originalHtml = buttonElement.innerHTML;
 
-    if (!buttonElement.querySelector('svg')) {
-        buttonElement.innerText = "Processing...";
-    } else {
-        buttonElement.classList.add('opacity-40');
-    }
+    try {
 
-    const { error } = await supabase.from('coop_contributions').update({ status: 'APPROVED' }).eq('id', id);
-    if (!error) {
+        buttonElement.disabled = true;
+
+        if (!buttonElement.querySelector("svg")) {
+            buttonElement.innerText = "Processing...";
+        } else {
+            buttonElement.classList.add("opacity-40");
+        }
+
+        const { error } = await supabase
+            .from("coop_contributions")
+            .update({
+                status: "APPROVED"
+            })
+            .eq("id", id);
+
+        if (error) {
+            throw error;
+        }
+
         executeAjoEnginePipeline();
+
         await renderInterfacePanels();
-    } else {
-        alert("Error: " + error.message);
+
+        await fetchAndRenderAuditFeed();
+
+    } catch (err) {
+
+        console.error("Approve Transaction Error:", err);
+
+        alert("❌ " + err.message);
+
         buttonElement.disabled = false;
         buttonElement.innerHTML = originalHtml;
-        buttonElement.classList.remove('opacity-40');
+        buttonElement.classList.remove("opacity-40");
     }
 }
 
-async function rejectAndEraseTransaction(buttonElement, id) {
-    if (!confirm("Permanently delete this entry?")) return;
+async function rejectTransaction(buttonElement, id) {
 
-    buttonElement.disabled = true;
+    const confirmation = confirm(
+        "Reject this contribution?\n\nThe payment will remain in the audit history but will no longer count toward the current round."
+    );
+
+    if (!confirmation) return;
+
     const originalHtml = buttonElement.innerHTML;
 
-    if (!buttonElement.querySelector('svg')) {
-        buttonElement.innerText = "Erasing...";
-    } else {
-        buttonElement.classList.add('opacity-40');
+    try {
+
+        buttonElement.disabled = true;
+
+        if (!buttonElement.querySelector("svg")) {
+            buttonElement.innerText = "Rejecting...";
+        } else {
+            buttonElement.classList.add("opacity-40");
+        }
+
+    const {
+        data,
+        error
+    } = await supabase
+        .from("coop_contributions")
+        .update({
+            status: "REJECTED"
+        })
+        .eq("id", id)
+        .select();
+
+    console.log("Reject Result:", data);
+    console.log("Reject Error:", error);
+
+    if (error) {
+        throw error;
     }
-
-    const { error } = await supabase
-        .from('coop_contributions')
-        .delete()
-        .eq('id', id);
-
-    if (!error) {
-        alert("🗑️ Entry deleted.");
+    
         executeAjoEnginePipeline();
+
         await renderInterfacePanels();
-    } else {
-        alert("Error: " + error.message);
+
+        await fetchAndRenderAuditFeed();
+
+    } catch (err) {
+
+        console.error("Reject Transaction Error:", err);
+
+        alert("❌ " + err.message);
+
         buttonElement.disabled = false;
         buttonElement.innerHTML = originalHtml;
-        buttonElement.classList.remove('opacity-40');
+        buttonElement.classList.remove("opacity-40");
     }
 }
 
 // ==========================================================
 // 12. RUNTIME UI DISPLAYS
 // ==========================================================
-function renderGlobalAjoBanner(collectorName, verifiedCount) {
+function renderGlobalAjoBanner(collectorName, totalPoolValue) {
     const container = document.getElementById('global-ajo-banner');
     if (!container) return;
 
@@ -720,7 +914,6 @@ function renderGlobalAjoBanner(collectorName, verifiedCount) {
         return;
     }
 
-    const totalPool = verifiedCount * state.currentGroup.contributionAmount;
     container.innerHTML = `
         <div class="p-4 rounded-xl border border-emerald-500/20 bg-slate-900/60 text-white mb-6 backdrop-blur">
             <div class="flex justify-between items-center flex-wrap gap-2">
@@ -730,7 +923,7 @@ function renderGlobalAjoBanner(collectorName, verifiedCount) {
                 </div>
                 <div class="text-right">
                     <span class="text-[10px] text-slate-400 block uppercase font-mono">Total pool value</span>
-                    <span class="text-lg font-black text-emerald-400 font-mono">₦${totalPool.toLocaleString()}</span>
+                    <span class="text-lg font-black text-emerald-400 font-mono">₦${totalPoolValue.toLocaleString()}</span>
                 </div>
             </div>
         </div>
@@ -787,34 +980,90 @@ function switchSubView(viewName) {
 async function handleLogin() {
     const email = document.getElementById('auth-email').value.trim();
     const password = document.getElementById('auth-password').value;
-    if (!email || !password) return;
-    await supabase.auth.signInWithPassword({ email, password });
+    const loginBtn = document.getElementById('btn-login');
+    const registerBtn = document.getElementById('btn-register');
+
+    if (!email || !password) {
+        alert("⚠️ Please fill in all fields.");
+        return;
+    }
+
+    loginBtn.disabled = true;
+    registerBtn.disabled = true;
+    const originalText = loginBtn.innerText;
+    loginBtn.innerText = "Authenticating...";
+    loginBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+        alert("❌ Authentication Failed: " + error.message);
+        loginBtn.disabled = false;
+        registerBtn.disabled = false;
+        loginBtn.innerText = originalText;
+        loginBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
 }
 
 async function handleRegister() {
     const email = document.getElementById('auth-email').value.trim();
     const password = document.getElementById('auth-password').value;
-    if (!email || password.length < 6) return;
-    await supabase.auth.signUp({ email, password });
-    alert("Account setup complete! Logging in...");
+    const loginBtn = document.getElementById('btn-login');
+    const registerBtn = document.getElementById('btn-register');
+
+    if (!email || !password) {
+        alert("⚠️ Please fill in all fields.");
+        return;
+    }
+    if (password.length < 6) {
+        alert("⚠️ Password must be at least 6 characters.");
+        return;
+    }
+
+    registerBtn.disabled = true;
+    loginBtn.disabled = true;
+    const originalText = registerBtn.innerText;
+    registerBtn.innerText = "Processing...";
+    registerBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+    const { error } = await supabase.auth.signUp({ email, password });
+
+    if (error) {
+        alert("❌ Registration Failed: " + error.message);
+        loginBtn.disabled = false;
+        registerBtn.disabled = false;
+        registerBtn.innerText = originalText;
+        registerBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    } else {
+        alert("🎯 Account setup complete! Logging in...");
+        loginBtn.disabled = false;
+        registerBtn.disabled = false;
+        registerBtn.innerText = originalText;
+        registerBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
 }
 
 // ==========================================================
-// 13. UTILITIES & MODALS
+// 13. UTILITIES, WORKSPACES & DIAGNOSTICS
 // ==========================================================
 function setupPasswordToggle() {
     const toggleBtn = document.getElementById('toggle-password');
     const passInput = document.getElementById('auth-password');
     if (!toggleBtn || !passInput) return;
-    toggleBtn.addEventListener('click', () => {
-        if (passInput.type === 'password') {
-            passInput.type = 'text';
-            toggleBtn.classList.add('text-emerald-400');
-        } else {
-            passInput.type = 'password';
-            toggleBtn.classList.remove('text-emerald-400');
-        }
-    });
+    toggleBtn.addEventListener("click", () => {
+
+    if (passInput.type === "password") {
+
+        passInput.type = "text";
+        toggleBtn.classList.add("text-emerald-400");
+
+    } else {
+
+        passInput.type = "password";
+        toggleBtn.classList.remove("text-emerald-400");
+
+    }
+});
 }
 
 async function handleUpdateProfileName() {
@@ -831,6 +1080,7 @@ function copyInviteLink() {
     navigator.clipboard.writeText(inviteLink).then(() => alert("📋 Share link copied!"));
 }
 
+// KEY GENERATION FIX: Delegates primary key provisioning safely to the database engine
 async function handleCreateGroupWizard() {
     const customName = prompt("Name your new circle:");
     if (!customName || !customName.trim()) return;
@@ -838,29 +1088,212 @@ async function handleCreateGroupWizard() {
     const customAmount = prompt("Enter the round goal amount (₦):", "50000");
     const formattedAmount = parseInt(customAmount) || 50000;
 
-    const generatedGroupId = "CIRCLE-" + Math.random().toString(36).substring(2, 9).toUpperCase();
-
-    const { error } = await supabase
+    const { data: newGroup, error } = await supabase
         .from('coop_groups')
         .insert([{
-            id: generatedGroupId,
             group_name: customName.trim(),
             contribution_amount: formattedAmount,
             current_round: 1,
             created_by: state.sessionUser.id,
             description: "Savings and contribution circle."
-        }]);
+        }])
+        .select('id')
+        .single(); // Pulls the production-grade generated ID right back out safely
 
-    if (!error) {
-        // NEW ARCHITECTURE: Ensure the workspace creator is immediately logged as a formal member
+    if (error) {
+        alert("Error creating circle: " + error.message);
+        return;
+    }
+
+    if (newGroup) {
         await supabase
             .from('coop_group_members')
             .insert([{
-                group_id: generatedGroupId,
+                group_id: newGroup.id,
                 user_id: state.sessionUser.id
             }]);
 
         alert(`🎯 Circle created!`);
-        await switchCircleWorkspace(generatedGroupId);
+        await switchCircleWorkspace(newGroup.id);
+    }
+}
+
+function logSimulatedWhatsAppAlert(memberName, contactMessage) {
+    const streamContainer = document.getElementById('whatsapp-diagnostic-strings');
+    if (!streamContainer) return;
+
+    if (streamContainer.innerHTML.includes('Awaiting engine operational triggers...')) {
+        streamContainer.innerHTML = '';
+    }
+
+    const currentTimestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const dynamicRow = document.createElement('div');
+
+    dynamicRow.className = "p-2 rounded bg-slate-900/50 border border-slate-900/60 animate-fade-in text-[11px] leading-relaxed";
+    dynamicRow.innerHTML = `
+        <span class="text-slate-500 font-bold">[${currentTimestamp}] Outbound WhatsApp Hook -></span> 
+        <span class="text-yellow-500 font-bold">@${memberName}</span><br/>
+        <span class="text-slate-400 font-mono">"${contactMessage}"</span>
+    `;
+
+    streamContainer.prepend(dynamicRow);
+}
+
+async function handleForceCloseRound() {
+    if (!state.currentGroup.id) return;
+
+    const confirmationPrompt = confirm(
+        `🚨 WARNING FOR THE TREASURER:\n\nAre you sure you want to force close Round ${state.currentGroup.currentRound}?\nThis instantly sweeps the circle status, flags defaulters, and moves to Round ${state.currentGroup.currentRound + 1}. This action cannot be undone.`
+    );
+
+    if (!confirmationPrompt) return;
+
+    const actionButton = document.getElementById("btn-force-close-round");
+
+    if (actionButton) {
+        actionButton.disabled = true;
+        actionButton.innerText = "Processing Pipeline...";
+    }
+
+    try {
+
+        // -------------------------------------------------
+        // Load all members of the current group
+        // -------------------------------------------------
+        const {
+            data: membershipMatrix,
+            error: memberFetchError
+        } = await supabase
+            .from("coop_group_members")
+            .select("user_id")
+            .eq("group_id", state.currentGroup.id);
+
+        if (memberFetchError) {
+            throw memberFetchError;
+        }
+
+        const memberIds = membershipMatrix?.map(member => member.user_id) ?? [];
+
+        // -------------------------------------------------
+        // Load member profiles
+        // -------------------------------------------------
+        let profiles = [];
+
+        if (memberIds.length > 0) {
+
+            const {
+                data: profileData,
+                error: profileFetchError
+            } = await supabase
+                .from("coop_profiles")
+                .select("id, full_name")
+                .in("id", memberIds);
+
+            if (profileFetchError) {
+                throw profileFetchError;
+            }
+
+            profiles = profileData ?? [];
+        }
+
+        const profileLookup = Object.fromEntries(
+            profiles.map(profile => [profile.id, profile])
+        );
+
+        // -------------------------------------------------
+        // Fetch approved contributions
+        // -------------------------------------------------
+        const {
+            data: approvedDeposits,
+            error: depositFetchError
+        } = await supabase
+            .from("coop_contributions")
+            .select("member_id")
+            .eq("group_id", state.currentGroup.id)
+            .eq("round_number", state.currentGroup.currentRound)
+            .eq("status", "APPROVED");
+
+        if (depositFetchError) {
+            throw depositFetchError;
+        }
+
+        const approvedMemberIds =
+            approvedDeposits?.map(record => record.member_id) ?? [];
+
+        // -------------------------------------------------
+        // Notify defaulters
+        // -------------------------------------------------
+        let alertTriggerCount = 0;
+
+        for (const member of membershipMatrix) {
+
+            const userId = member.user_id;
+
+            const profileName =
+                profileLookup[userId]?.full_name ??
+                "Unknown Member";
+
+            if (!approvedMemberIds.includes(userId)) {
+
+                alertTriggerCount++;
+
+                const dynamicMessage =
+                    `Ajo Circular Notice: Round ${state.currentGroup.currentRound} has been closed by the Group Manager. Your contribution was marked as outstanding. A missed-cycle penalty fee has been issued to your ledger account.`;
+
+                logSimulatedWhatsAppAlert(
+                    profileName,
+                    dynamicMessage
+                );
+            }
+        }
+
+        if (alertTriggerCount === 0) {
+            logSimulatedWhatsAppAlert(
+                "System Engine",
+                "✅ Splendid! All active circle members processed clean payments for this round cycle."
+            );
+        }
+
+        // -------------------------------------------------
+        // Advance the group to the next round
+        // -------------------------------------------------
+        const advancedRoundTarget =
+            Number(state.currentGroup.currentRound) + 1;
+
+        const {
+            error: groupUpdateError
+        } = await supabase
+            .from("coop_groups")
+            .update({
+                current_round: advancedRoundTarget
+            })
+            .eq("id", state.currentGroup.id);
+
+        if (groupUpdateError) {
+            throw groupUpdateError;
+        }
+
+        alert(
+            `🎯 Round ${state.currentGroup.currentRound} closed! The circle has safely migrated to Round ${advancedRoundTarget}.`
+        );
+
+        await syncUserProfileAndGroupRole();
+
+    } catch (err) {
+
+        console.error("Critical Failure in Force Close Gate:", err);
+
+        alert(
+            "❌ Automation Engine Failed:\n\n" +
+            err.message
+        );
+
+    } finally {
+
+        if (actionButton) {
+            actionButton.disabled = false;
+            actionButton.innerText = "⏳ Force Close & Advance";
+        }
+
     }
 }
