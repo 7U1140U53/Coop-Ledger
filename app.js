@@ -603,6 +603,167 @@ async function renderInterfacePanels() {
             if (txBankInput) { txBankInput.disabled = false; }
         }
     }
+    await renderContributionHistory();
+}
+
+// ==========================================================
+// 8A. CONTRIBUTION HISTORY RENDERER
+// ==========================================================
+async function renderContributionHistory() {
+
+    const historyContainer = document.getElementById("contribution-history");
+
+    if (!historyContainer) return;
+
+    if (!state.currentGroup.id) {
+        historyContainer.innerHTML = "";
+        return;
+    }
+
+    const { data: history, error } = await supabase
+        .from("coop_contributions")
+        .select(`
+            round_number,
+            amount,
+            payment_reference,
+            sender_bank_name,
+            status,
+            created_at
+        `)
+        .eq("group_id", state.currentGroup.id)
+        .eq("member_id", state.sessionUser.id)
+        .order("round_number", { ascending: false })
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        console.error("Contribution History Error:", error);
+
+        historyContainer.innerHTML = `
+            <div class="p-4 rounded-xl border border-rose-500/20 bg-rose-500/5 text-xs text-rose-400">
+                Unable to load contribution history.
+            </div>
+        `;
+
+        return;
+    }
+
+    if (!history || history.length === 0) {
+
+        historyContainer.innerHTML = `
+            <div class="p-5 rounded-xl border border-dashed border-slate-800 bg-slate-900/20 text-center">
+                <p class="text-xs text-slate-500">
+                    No contribution history yet.
+                </p>
+            </div>
+        `;
+
+        return;
+    }
+
+    const statusMap = {
+
+        APPROVED: {
+            badge: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+            icon: "🟢",
+            label: "Approved"
+        },
+
+        PENDING_VERIFICATION: {
+            badge: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+            icon: "🟡",
+            label: "Pending"
+        },
+
+        REJECTED: {
+            badge: "bg-rose-500/10 text-rose-400 border border-rose-500/20",
+            icon: "🔴",
+            label: "Rejected"
+        }
+
+    };
+
+    historyContainer.innerHTML = history.map((item, index) => {
+
+        const status =
+            statusMap[item.status] ??
+            statusMap.PENDING_VERIFICATION;
+        
+        const latestBadge = index === 0
+            ? `
+                <div class="mb-2">
+                    <span class="text-[9px] font-mono uppercase tracking-[0.25em] text-emerald-400">
+                        Latest Contribution
+                    </span>
+                </div>
+            `
+            : "";
+
+        return `
+            <div class="border border-slate-800 rounded-xl bg-slate-900/20 p-4 animate-fade-in">
+               ${latestBadge}
+
+                <div class="flex justify-between items-center mb-3">
+
+                    <span class="text-xs font-bold text-white">
+                        Round ${item.round_number}
+                    </span>
+
+                    <span class="text-[10px] font-mono px-2 py-1 rounded-full ${status.badge}">
+                        ${status.icon} ${status.label}
+                    </span>
+
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 text-xs">
+
+                    <div>
+                        <span class="text-slate-500 block">Reference</span>
+                        <span class="font-mono text-white">
+                            ${item.payment_reference}
+                        </span>
+                    </div>
+
+                    <div>
+                        <span class="text-slate-500 block">Bank</span>
+                        <span class="text-slate-300">
+                            ${item.sender_bank_name}
+                        </span>
+                    </div>
+
+                    <div>
+                        <span class="text-slate-500 block">Amount</span>
+                        <span class="font-bold text-white">
+                            ₦${Number(item.amount).toLocaleString()}
+                        </span>
+                    </div>
+
+                    <div>
+                        <span class="text-slate-500 block">Submitted</span>
+                        <span class="text-slate-300">
+                            ${new Date(item.created_at).toLocaleDateString(undefined, {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric"
+                            })}
+
+                            <br>
+
+                            <span class="text-[10px] text-slate-500">
+                                ${new Date(item.created_at).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit"
+                                })}
+                            </span>
+                        </span>
+                    </div>
+
+                </div>
+
+            </div>
+        `;
+
+    }).join("");
+
 }
 
 // ==========================================================

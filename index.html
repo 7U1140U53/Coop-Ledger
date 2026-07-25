@@ -161,6 +161,25 @@
 
                         <div id="member-panel" class="w-full"></div>
 
+                        <div class="pt-4 border-t border-slate-900">
+
+            <div class="mb-4">
+                <h4 class="text-xs font-mono text-slate-400 uppercase tracking-wider">
+                    Contribution History
+                </h4>
+
+                <p class="text-[11px] text-slate-500 mt-1">
+                    Previous deposits and their verification status.
+                </p>
+            </div>
+
+            <div
+                id="contribution-history"
+                class="space-y-3">
+            </div>
+
+        </div>
+
                         <div class="pt-4 border-t border-slate-900 max-w-md">
                             <h4 class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-2.5">Profile</h4>
                             <div class="flex gap-2">
@@ -192,7 +211,7 @@
 
                             <div>
                                 <label for="tx-bank"
-                                    class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5">Bank</label>
+                                    class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5">Sending Bank</label>
                                 <select id="tx-bank"
                                     class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-xl px-3 py-2 font-mono text-base sm:text-xs focus:outline-none focus:border-emerald-500/50">
                                     <option value="Access Bank">Access Bank PLC</option>
@@ -205,8 +224,8 @@
 
                             <div>
                                 <label for="tx-ref"
-                                    class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5">Reference
-                                    code</label>
+                                    class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5">Payment Reference
+                                </label>
                                 <input id="tx-ref" type="text" placeholder="Enter reference code" required
                                     class="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 font-mono text-base sm:text-xs focus:outline-none focus:border-emerald-500/50 transition">
                             </div>
