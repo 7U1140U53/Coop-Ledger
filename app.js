@@ -1231,7 +1231,7 @@ async function handleUpdateProfileName() {
     const newName = document.getElementById('settings-profile-name').value.trim();
     if (!newName) return;
     await supabase.from('coop_profiles').update({ full_name: newName }).eq('id', state.sessionUser.id);
-    alert("Identity sync complete!");
+   alert("Profile updated successfully.");
     await syncUserProfileAndGroupRole();
 }
 

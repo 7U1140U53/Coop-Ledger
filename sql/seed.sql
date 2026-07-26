@@ -1,0 +1,14 @@
+-- =====================================================
+-- Coop Ledger Seed Data
+-- Version: 1.0
+-- Last Updated: 2026-07-26
+--
+-- Purpose:
+-- This file contains mandatory seed data required by the
+-- application after the database schema has been created.
+--
+-- The current version of Coop Ledger does not require any
+-- mandatory seed data.
+--
+-- This file is intentionally left blank.
+-- =====================================================

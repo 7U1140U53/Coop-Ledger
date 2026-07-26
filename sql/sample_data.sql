@@ -1,0 +1,13 @@
+-- =====================================================
+-- Coop Ledger Sample Data
+-- Version: 1.0
+-- Last Updated: 2026-07-26
+--
+-- Purpose:
+-- This file is intended to contain optional sample data
+-- for development, testing, demonstrations, or training.
+--
+-- No sample data has been provided in Version 1.0.
+--
+-- This file may be populated in future releases.
+-- =====================================================

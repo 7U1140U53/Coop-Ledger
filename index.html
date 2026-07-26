@@ -181,16 +181,44 @@
         </div>
 
                         <div class="pt-4 border-t border-slate-900 max-w-md">
-                            <h4 class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-2.5">Profile</h4>
-                            <div class="flex gap-2">
-                                <input id="settings-profile-name" type="text" placeholder="Your full name"
-                                    class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-white focus:outline-none focus:border-emerald-500/50 transition font-mono text-base sm:text-xs">
-                                <button id="btn-save-profile"
-                                    class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-700 transition shrink-0">Save
-                                    name</button>
-                            </div>
-                        </div>
-                    </div>
+
+    <div class="mb-4">
+        <h4 class="text-xs font-mono text-slate-400 uppercase tracking-wider">
+            Profile Settings
+        </h4>
+
+        <p class="text-[11px] text-slate-500 mt-1">
+            Update the name shown to members of your cooperative circles.
+        </p>
+    </div>
+
+    <div class="space-y-2">
+
+        <label
+            for="settings-profile-name"
+            class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider">
+            Display Name
+        </label>
+
+        <div class="flex gap-2">
+
+            <input
+                id="settings-profile-name"
+                type="text"
+                placeholder="Enter your display name"
+                class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-white focus:outline-none focus:border-emerald-500/50 transition font-mono text-base sm:text-xs">
+
+            <button
+                id="btn-save-profile"
+                class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-700 transition shrink-0">
+                Save Changes
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
 
                     <div id="view-deposit" class="sub-view p-6 hidden max-w-xl mx-auto w-full space-y-6">
                         <div class="text-center space-y-1">
