@@ -41,18 +41,51 @@ document.addEventListener("DOMContentLoaded", () => {
   setupPasswordToggle();
 });
 
+function resetAuthUI() {
+  const loginBtn = document.getElementById("btn-login");
+  const registerBtn = document.getElementById("btn-register");
+  const emailInput = document.getElementById("auth-email");
+  const passwordInput = document.getElementById("auth-password");
+
+  if (loginBtn) {
+    loginBtn.disabled = false;
+    loginBtn.innerText = "Sign In";
+    loginBtn.classList.remove("opacity-50", "cursor-not-allowed");
+  }
+
+  if (registerBtn) {
+    registerBtn.disabled = false;
+    registerBtn.innerText = "Register";
+    registerBtn.classList.remove("opacity-50", "cursor-not-allowed");
+  }
+
+  if (emailInput) emailInput.value = "";
+  if (passwordInput) passwordInput.value = "";
+}
+
 function initAuthListeners() {
   supabase.auth.onAuthStateChange(async (event, session) => {
+    console.log("Auth Event:", event);
+
     if (session) {
       state.sessionUser = session.user;
+
       await syncUserProfileAndGroupRole();
+
+      renderAuthBadge();
+
       toggleView("DASHBOARD");
     } else {
       state.sessionUser = null;
       state.userProfile = null;
       state.userCirclesList = [];
-      toggleView("AUTH");
+      state.currentGroup = {};
+
+      resetAuthUI();
+
       renderAuthBadge();
+
+      toggleView("AUTH");
     }
   });
 }
@@ -1136,15 +1169,58 @@ function renderGlobalAjoBanner(collectorName, totalPoolValue) {
 
 function renderAuthBadge() {
   const badge = document.getElementById("auth-status-badge");
+
   if (!badge) return;
+
   if (!state.sessionUser) {
     badge.innerHTML = "";
     return;
   }
+
   badge.innerHTML = `
-        <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-400 mr-2 border border-slate-700">${state.effectiveRole}</span>
-        <button onclick="supabase.auth.signOut()" class="text-xs font-bold text-rose-400 hover:underline">Sign Out</button>
+        <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-400 mr-2 border border-slate-700">
+            ${state.effectiveRole}
+        </span>
+
+        <button
+            id="btn-logout"
+            onclick="handleLogout()"
+            class="text-xs font-bold text-rose-400 hover:underline transition"
+        >
+            Sign Out
+        </button>
     `;
+}
+
+async function handleLogout() {
+  const logoutBtn = document.getElementById("btn-logout");
+
+  if (logoutBtn) {
+    logoutBtn.disabled = true;
+    logoutBtn.innerText = "Signing Out...";
+  }
+
+  try {
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      throw error;
+    }
+
+    // Do nothing else.
+    // initAuthListeners() will receive SIGNED_OUT
+    // and reset the application automatically.
+
+  } catch (err) {
+    console.error("Logout Error:", err);
+
+    alert("❌ " + err.message);
+
+    if (logoutBtn) {
+      logoutBtn.disabled = false;
+      logoutBtn.innerText = "Sign Out";
+    }
+  }
 }
 
 function toggleView(view) {
@@ -1197,6 +1273,7 @@ function switchSubView(viewName) {
 async function handleLogin() {
   const email = document.getElementById("auth-email").value.trim();
   const password = document.getElementById("auth-password").value;
+
   const loginBtn = document.getElementById("btn-login");
   const registerBtn = document.getElementById("btn-register");
 
@@ -1207,18 +1284,41 @@ async function handleLogin() {
 
   loginBtn.disabled = true;
   registerBtn.disabled = true;
-  const originalText = loginBtn.innerText;
+
   loginBtn.innerText = "Authenticating...";
-  loginBtn.classList.add("opacity-50", "cursor-not-allowed");
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  loginBtn.classList.add(
+    "opacity-50",
+    "cursor-not-allowed"
+  );
 
-  if (error) {
-    alert("❌ Authentication Failed: " + error.message);
+  try {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    // Successful login.
+    // Do NOT touch the UI here.
+    // The auth listener will receive SIGNED_IN
+    // and transition into the dashboard.
+
+  } catch (err) {
+    alert("❌ Authentication Failed: " + err.message);
+
     loginBtn.disabled = false;
     registerBtn.disabled = false;
-    loginBtn.innerText = originalText;
-    loginBtn.classList.remove("opacity-50", "cursor-not-allowed");
+
+    loginBtn.innerText = "Sign In";
+
+    loginBtn.classList.remove(
+      "opacity-50",
+      "cursor-not-allowed"
+    );
   }
 }
 
@@ -1300,10 +1400,29 @@ function copyInviteLink() {
 // KEY GENERATION FIX: Delegates primary key provisioning safely to the database engine
 async function handleCreateGroupWizard() {
   const customName = prompt("Name your new circle:");
-  if (!customName || !customName.trim()) return;
 
-  const customAmount = prompt("Enter the round goal amount (₦):", "50000");
-  const formattedAmount = parseInt(customAmount) || 50000;
+  // User cancelled or entered an empty name
+  if (!customName || !customName.trim()) {
+    return;
+  }
+
+  const customAmount = prompt(
+    "Enter the round goal amount (₦):",
+    "50000"
+  );
+
+  // User cancelled the goal amount prompt
+  if (customAmount === null) {
+    return;
+  }
+
+  const formattedAmount = Number(customAmount);
+
+  // Validate the entered amount
+  if (!Number.isFinite(formattedAmount) || formattedAmount <= 0) {
+    alert("Please enter a valid contribution amount.");
+    return;
+  }
 
   const { data: newGroup, error } = await supabase
     .from("coop_groups")
@@ -1317,24 +1436,30 @@ async function handleCreateGroupWizard() {
       },
     ])
     .select("id")
-    .single(); // Pulls the production-grade generated ID right back out safely
+    .single();
 
   if (error) {
     alert("Error creating circle: " + error.message);
     return;
   }
 
-  if (newGroup) {
-    await supabase.from("coop_group_members").insert([
+  const { error: memberError } = await supabase
+    .from("coop_group_members")
+    .insert([
       {
         group_id: newGroup.id,
         user_id: state.sessionUser.id,
       },
     ]);
 
-    alert(`🎯 Circle created!`);
-    await switchCircleWorkspace(newGroup.id);
+  if (memberError) {
+    alert("Circle created, but failed to add you as a member.");
+    return;
   }
+
+  alert("🎯 Circle created successfully!");
+
+  await switchCircleWorkspace(newGroup.id);
 }
 
 function logSimulatedWhatsAppAlert(memberName, contactMessage) {
