@@ -498,15 +498,26 @@
                     <label
                       for="edit-group-amount"
                       class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-1"
-                      >Goal amount (₦)</label
                     >
+                      Goal amount (₦)
+                    </label>
+
                     <input
                       id="edit-group-amount"
                       type="number"
                       class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-white font-mono text-base sm:text-xs focus:outline-none"
                     />
-                  </div>
 
+                    <p
+                      id="amount-lock-message"
+                      class="hidden mt-2 text-xs text-amber-400"
+                    >
+                      🔒 The contribution amount is locked because contributions
+                      have already started for this round. Force close the round
+                      before changing it.
+                    </p>
+                  </div>
+                  
                   <div>
                     <label
                       for="edit-group-desc"

@@ -40,6 +40,7 @@ const state = {
     currentRound: 1,
     createdBy: null,
     description: "",
+    amountLocked: false,
   },
   effectiveRole: "MEMBER",
 
@@ -210,6 +211,14 @@ async function syncUserProfileAndGroupRole() {
         state.currentGroup.description =
           groupData.description || "No description set.";
 
+        const { count } = await supabase
+          .from("coop_contributions")
+          .select("*", { count: "exact", head: true })
+          .eq("group_id", state.currentGroup.id)
+          .eq("round_number", state.currentGroup.currentRound);
+
+        state.currentGroup.amountLocked = count > 0;
+
         state.effectiveRole =
           groupData.created_by === state.sessionUser.id
             ? "TREASURER"
@@ -242,6 +251,17 @@ async function syncUserProfileAndGroupRole() {
 
       if (amtField) {
         amtField.value = state.currentGroup.contributionAmount;
+
+        amtField.disabled = state.currentGroup.amountLocked;
+
+        const lockMessage = document.getElementById("amount-lock-message");
+
+        if (lockMessage) {
+          lockMessage.classList.toggle(
+            "hidden",
+            !state.currentGroup.amountLocked,
+          );
+        }
       }
 
       if (descField) {
@@ -981,19 +1001,27 @@ async function handleUpdateGroupConfig() {
   const editDesc = document.getElementById("edit-group-desc").value.trim();
   const saveGroupBtn = document.getElementById("btn-save-group-config");
 
-  if (!editName || !editAmount) {
-    alert("Fields cannot be blank.");
+  if (!editName) {
+    alert("Circle name cannot be blank.");
     return;
   }
 
   saveGroupBtn.disabled = true;
+
+  // Build the update object
+  const updates = {
+    group_name: editName,
+    description: editDesc,
+  };
+
+  // Only allow the contribution amount to change if it isn't locked
+  if (!state.currentGroup.amountLocked) {
+    updates.contribution_amount = parseInt(editAmount);
+  }
+
   const { error } = await supabase
     .from("coop_groups")
-    .update({
-      group_name: editName,
-      contribution_amount: parseInt(editAmount),
-      description: editDesc,
-    })
+    .update(updates)
     .eq("id", state.currentGroup.id);
 
   saveGroupBtn.disabled = false;
