@@ -13,6 +13,6 @@ A verification of the live database found no user-defined database functions wit
 
 # Summary
 
-| Item | Count |
-|------|------:|
-| Functions | 0 |
+| Item      | Count |
+| --------- | ----: |
+| Functions |     0 |

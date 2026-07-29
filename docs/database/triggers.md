@@ -13,6 +13,6 @@ A verification of the live database found no database triggers within the `coop_
 
 # Summary
 
-| Item | Count |
-|------|------:|
-| Triggers | 0 |
+| Item     | Count |
+| -------- | ----: |
+| Triggers |     0 |

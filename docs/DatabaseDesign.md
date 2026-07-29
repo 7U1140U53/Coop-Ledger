@@ -62,10 +62,10 @@ This separation follows Supabase best practices by distinguishing authentication
 
 The current implementation consists of two primary schemas.
 
-| Schema | Responsibility |
-|---------|----------------|
-| `auth` | Managed by Supabase Authentication for user identities |
-| `coop_ledger` | Stores all application-specific business data |
+| Schema        | Responsibility                                         |
+| ------------- | ------------------------------------------------------ |
+| `auth`        | Managed by Supabase Authentication for user identities |
+| `coop_ledger` | Stores all application-specific business data          |
 
 The application interacts directly with the `coop_ledger` schema while referencing authenticated users through foreign key relationships to `auth.users`.
 
@@ -75,12 +75,12 @@ The application interacts directly with the `coop_ledger` schema while referenci
 
 The database currently consists of four core application tables.
 
-| Table | Purpose |
-|---------|---------|
-| `coop_profiles` | Stores application profile information for authenticated users |
-| `coop_groups` | Stores cooperative savings groups |
+| Table                | Purpose                                                                  |
+| -------------------- | ------------------------------------------------------------------------ |
+| `coop_profiles`      | Stores application profile information for authenticated users           |
+| `coop_groups`        | Stores cooperative savings groups                                        |
 | `coop_group_members` | Represents membership relationships between users and cooperative groups |
-| `coop_contributions` | Stores contribution records submitted by cooperative members |
+| `coop_contributions` | Stores contribution records submitted by cooperative members             |
 
 Each table represents a single business entity and performs one clearly defined responsibility within the application.
 
@@ -133,11 +133,11 @@ The `coop_ledger` schema contains all application-specific database objects requ
 
 The schema currently consists of four relational tables that collectively support user management, cooperative administration, membership management, and contribution tracking.
 
-| Table | Description |
-|---------|-------------|
-| `coop_profiles` | Stores application profile information for authenticated users. |
-| `coop_groups` | Stores cooperative savings groups and configuration. |
-| `coop_group_members` | Maintains membership relationships between users and groups. |
+| Table                | Description                                                        |
+| -------------------- | ------------------------------------------------------------------ |
+| `coop_profiles`      | Stores application profile information for authenticated users.    |
+| `coop_groups`        | Stores cooperative savings groups and configuration.               |
+| `coop_group_members` | Maintains membership relationships between users and groups.       |
 | `coop_contributions` | Stores contribution transactions submitted by cooperative members. |
 
 The schema follows a normalized relational design that minimizes redundancy while maintaining strong referential integrity between entities.
@@ -223,14 +223,14 @@ These relationships ensure that data remains consistent throughout the applicati
 
 The database currently contains six foreign key relationships.
 
-| Parent Table | Child Table | Relationship |
-|--------------|-------------|--------------|
-| `auth.users` | `coop_profiles` | One-to-One |
-| `auth.users` | `coop_groups` | One-to-Many |
-| `coop_groups` | `coop_group_members` | One-to-Many |
-| `auth.users` | `coop_group_members` | One-to-Many |
-| `coop_profiles` | `coop_contributions` | One-to-Many |
-| `coop_groups` | `coop_contributions` | One-to-Many |
+| Parent Table    | Child Table          | Relationship |
+| --------------- | -------------------- | ------------ |
+| `auth.users`    | `coop_profiles`      | One-to-One   |
+| `auth.users`    | `coop_groups`        | One-to-Many  |
+| `coop_groups`   | `coop_group_members` | One-to-Many  |
+| `auth.users`    | `coop_group_members` | One-to-Many  |
+| `coop_profiles` | `coop_contributions` | One-to-Many  |
+| `coop_groups`   | `coop_contributions` | One-to-Many  |
 
 These relationships establish the following business rules:
 
@@ -257,14 +257,14 @@ The Coop Ledger database uses foreign key constraints to prevent orphaned record
 
 The following foreign key relationships are enforced.
 
-| Child Table | Parent Table | Delete Action |
-|-------------|--------------|---------------|
-| `coop_profiles` | `auth.users` | CASCADE |
-| `coop_groups` | `auth.users` | SET NULL |
-| `coop_group_members` | `coop_groups` | CASCADE |
-| `coop_group_members` | `auth.users` | CASCADE |
-| `coop_contributions` | `coop_profiles` | CASCADE |
-| `coop_contributions` | `coop_groups` | CASCADE |
+| Child Table          | Parent Table    | Delete Action |
+| -------------------- | --------------- | ------------- |
+| `coop_profiles`      | `auth.users`    | CASCADE       |
+| `coop_groups`        | `auth.users`    | SET NULL      |
+| `coop_group_members` | `coop_groups`   | CASCADE       |
+| `coop_group_members` | `auth.users`    | CASCADE       |
+| `coop_contributions` | `coop_profiles` | CASCADE       |
+| `coop_contributions` | `coop_groups`   | CASCADE       |
 
 This strategy provides several benefits.
 
@@ -422,19 +422,19 @@ The current Coop Ledger database implementation intentionally maintains a simple
 
 The database currently contains the following object types.
 
-| Object Type | Status |
-|-------------|--------|
-| Tables | 4 |
-| Primary Keys | Implemented |
-| Foreign Keys | Implemented |
-| CHECK Constraints | Implemented |
-| Unique Constraints | Implemented |
-| Indexes | Implemented |
+| Object Type                 | Status      |
+| --------------------------- | ----------- |
+| Tables                      | 4           |
+| Primary Keys                | Implemented |
+| Foreign Keys                | Implemented |
+| CHECK Constraints           | Implemented |
+| Unique Constraints          | Implemented |
+| Indexes                     | Implemented |
 | Row Level Security Policies | Implemented |
-| Functions | None |
-| Triggers | None |
-| Views | None |
-| Stored Procedures | None |
+| Functions                   | None        |
+| Triggers                    | None        |
+| Views                       | None        |
+| Stored Procedures           | None        |
 
 The absence of database functions, triggers, and stored procedures is an intentional design decision for the current version of the application. Business logic is implemented primarily within the application layer, while PostgreSQL is responsible for maintaining data integrity, enforcing relationships, validating business rules, and securing data through Row Level Security.
 
@@ -448,17 +448,17 @@ This document provides the architectural overview of the Coop Ledger database.
 
 Detailed implementation information is maintained in dedicated reference documents to improve maintainability and reduce duplication.
 
-| Document | Purpose |
-|----------|---------|
-| `sql/schema.sql` | Canonical database schema definition |
-| `sql/rls_policies.sql` | PostgreSQL Row Level Security policies |
-| `docs/database/tables.md` | Table definitions |
-| `docs/database/relationships.md` | Foreign key relationships |
-| `docs/database/constraints.md` | Database constraints |
-| `docs/database/indexes.md` | Index definitions |
-| `docs/database/rls.md` | Row Level Security overview |
-| `docs/database/functions.md` | Database functions |
-| `docs/database/triggers.md` | Database triggers |
+| Document                         | Purpose                                |
+| -------------------------------- | -------------------------------------- |
+| `sql/schema.sql`                 | Canonical database schema definition   |
+| `sql/rls_policies.sql`           | PostgreSQL Row Level Security policies |
+| `docs/database/tables.md`        | Table definitions                      |
+| `docs/database/relationships.md` | Foreign key relationships              |
+| `docs/database/constraints.md`   | Database constraints                   |
+| `docs/database/indexes.md`       | Index definitions                      |
+| `docs/database/rls.md`           | Row Level Security overview            |
+| `docs/database/functions.md`     | Database functions                     |
+| `docs/database/triggers.md`      | Database triggers                      |
 
 Maintaining detailed implementation information separately allows this document to remain focused on database architecture while ensuring individual technical references remain easier to maintain.
 
@@ -557,7 +557,7 @@ As the application evolves, the database architecture is designed to accommodate
 
 ## Revision History
 
-| Version | Date | Description |
-|---------|------|-------------|
-| 1.0 | Initial Draft | Initial database design documentation |
-| 2.0 | 2026-07-26 | Complete rewrite following live database verification, documentation restructuring, and schema audit. |
+| Version | Date          | Description                                                                                           |
+| ------- | ------------- | ----------------------------------------------------------------------------------------------------- |
+| 1.0     | Initial Draft | Initial database design documentation                                                                 |
+| 2.0     | 2026-07-26    | Complete rewrite following live database verification, documentation restructuring, and schema audit. |

@@ -54,16 +54,16 @@ These components work together to process user requests, enforce business rules,
 
 # 4. Technology Stack
 
-| Layer | Technology | Purpose |
-|--------|------------|---------|
-| Frontend | HTML5 | Application structure |
-| Frontend | CSS3 | User interface styling |
-| Frontend | JavaScript (ES6+) | Application logic |
-| Backend | Supabase | Backend-as-a-Service |
-| Authentication | Supabase Auth | User authentication |
-| Database | PostgreSQL | Persistent data storage |
-| Security | Row Level Security (RLS) | Data access control |
-| Hosting | Vercel | Web application hosting |
+| Layer          | Technology               | Purpose                 |
+| -------------- | ------------------------ | ----------------------- |
+| Frontend       | HTML5                    | Application structure   |
+| Frontend       | CSS3                     | User interface styling  |
+| Frontend       | JavaScript (ES6+)        | Application logic       |
+| Backend        | Supabase                 | Backend-as-a-Service    |
+| Authentication | Supabase Auth            | User authentication     |
+| Database       | PostgreSQL               | Persistent data storage |
+| Security       | Row Level Security (RLS) | Data access control     |
+| Hosting        | Vercel                   | Web application hosting |
 
 ---
 

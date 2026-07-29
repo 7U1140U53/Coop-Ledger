@@ -13,13 +13,13 @@ The Coop Ledger database uses primary key indexes and one composite unique index
 
 # Indexes
 
-| Index | Type | Table |
-|--------|------|-------|
-| coop_profiles_pkey | Primary Key | coop_profiles |
-| coop_groups_pkey | Primary Key | coop_groups |
-| coop_group_members_pkey | Primary Key | coop_group_members |
-| coop_contributions_pkey | Primary Key | coop_contributions |
-| unique_group_member | Unique Composite | coop_group_members |
+| Index                   | Type             | Table              |
+| ----------------------- | ---------------- | ------------------ |
+| coop_profiles_pkey      | Primary Key      | coop_profiles      |
+| coop_groups_pkey        | Primary Key      | coop_groups        |
+| coop_group_members_pkey | Primary Key      | coop_group_members |
+| coop_contributions_pkey | Primary Key      | coop_contributions |
+| unique_group_member     | Unique Composite | coop_group_members |
 
 ---
 
@@ -40,8 +40,8 @@ Ensures a user cannot be added to the same cooperative group more than once.
 
 # Summary
 
-| Item | Count |
-|------|------:|
-| Primary Key Indexes | 4 |
-| Unique Composite Indexes | 1 |
-| Total Indexes | 5 |
+| Item                     | Count |
+| ------------------------ | ----: |
+| Primary Key Indexes      |     4 |
+| Unique Composite Indexes |     1 |
+| Total Indexes            |     5 |

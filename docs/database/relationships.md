@@ -13,14 +13,14 @@ The Coop Ledger database contains six foreign key relationships that maintain re
 
 # Relationship Summary
 
-| Parent Table | Child Table | Foreign Key | On Delete |
-|--------------|-------------|-------------|-----------|
-| auth.users | coop_profiles | id | CASCADE |
-| auth.users | coop_groups | created_by | SET NULL |
-| coop_groups | coop_group_members | group_id | CASCADE |
-| auth.users | coop_group_members | user_id | CASCADE |
-| coop_groups | coop_contributions | group_id | CASCADE |
-| coop_profiles | coop_contributions | member_id | CASCADE |
+| Parent Table  | Child Table        | Foreign Key | On Delete |
+| ------------- | ------------------ | ----------- | --------- |
+| auth.users    | coop_profiles      | id          | CASCADE   |
+| auth.users    | coop_groups        | created_by  | SET NULL  |
+| coop_groups   | coop_group_members | group_id    | CASCADE   |
+| auth.users    | coop_group_members | user_id     | CASCADE   |
+| coop_groups   | coop_contributions | group_id    | CASCADE   |
+| coop_profiles | coop_contributions | member_id   | CASCADE   |
 
 ---
 
@@ -70,8 +70,8 @@ The Coop Ledger database contains six foreign key relationships that maintain re
 
 # Summary
 
-| Item | Count |
-|------|------:|
-| Foreign Keys | 6 |
-| Cascade Deletes | 5 |
-| SET NULL Actions | 1 |
+| Item             | Count |
+| ---------------- | ----: |
+| Foreign Keys     |     6 |
+| Cascade Deletes  |     5 |
+| SET NULL Actions |     1 |

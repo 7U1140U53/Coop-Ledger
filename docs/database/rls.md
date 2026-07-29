@@ -17,12 +17,12 @@ Policy definitions are maintained in:
 
 # RLS Status
 
-| Table | RLS Enabled |
-|--------|-------------|
-| coop_profiles | Yes |
-| coop_groups | Yes |
-| coop_group_members | Yes |
-| coop_contributions | Yes |
+| Table              | RLS Enabled |
+| ------------------ | ----------- |
+| coop_profiles      | Yes         |
+| coop_groups        | Yes         |
+| coop_group_members | Yes         |
+| coop_contributions | Yes         |
 
 ---
 
@@ -61,8 +61,8 @@ Policy definitions are maintained in:
 
 # Summary
 
-| Item | Count |
-|------|------:|
-| Tables Protected | 4 |
-| Policies | 11 |
-| RLS Enabled | Yes |
+| Item             | Count |
+| ---------------- | ----: |
+| Tables Protected |     4 |
+| Policies         |    11 |
+| RLS Enabled      |   Yes |

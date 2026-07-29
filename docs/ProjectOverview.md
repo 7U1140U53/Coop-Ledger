@@ -77,15 +77,15 @@ The current release includes:
 
 # 6. Technology Stack
 
-| Layer | Technology |
-|--------|------------|
-| Frontend | HTML5 |
-| Styling | Tailwind CSS |
-| Programming Language | JavaScript (ES6) |
-| Backend | Supabase |
-| Database | PostgreSQL |
-| Authentication | Supabase Auth |
-| Security | Row Level Security (RLS) |
+| Layer                | Technology               |
+| -------------------- | ------------------------ |
+| Frontend             | HTML5                    |
+| Styling              | Tailwind CSS             |
+| Programming Language | JavaScript (ES6)         |
+| Backend              | Supabase                 |
+| Database             | PostgreSQL               |
+| Authentication       | Supabase Auth            |
+| Security             | Row Level Security (RLS) |
 
 ---
 
@@ -135,17 +135,17 @@ Coop-Ledger/
 
 # 9. Documentation Index
 
-| Document | Purpose |
-|----------|---------|
-| README.md | Repository overview |
+| Document           | Purpose                    |
+| ------------------ | -------------------------- |
+| README.md          | Repository overview        |
 | ProjectOverview.md | High-level project summary |
-| PRD.md | Product requirements |
-| Architecture.md | Software architecture |
-| Database.md | Database design |
-| UserGuide.md | End-user documentation |
-| DeveloperGuide.md | Developer documentation |
-| CHANGELOG.md | Version history |
-| FutureRoadmap.md | Planned enhancements |
+| PRD.md             | Product requirements       |
+| Architecture.md    | Software architecture      |
+| Database.md        | Database design            |
+| UserGuide.md       | End-user documentation     |
+| DeveloperGuide.md  | Developer documentation    |
+| CHANGELOG.md       | Version history            |
+| FutureRoadmap.md   | Planned enhancements       |
 
 ---
 

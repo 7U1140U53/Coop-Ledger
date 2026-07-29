@@ -16,16 +16,16 @@ It is intended for software developers who contribute to the project and serves 
 
 # 2. Technology Stack
 
-| Component | Technology |
-|----------|------------|
-| Frontend | HTML5 |
-| Styling | CSS3 |
-| Client Logic | JavaScript (ES6) |
-| Backend | Supabase |
-| Database | PostgreSQL |
-| Authentication | Supabase Authentication |
-| Version Control | Git |
-| Repository | GitHub |
+| Component       | Technology              |
+| --------------- | ----------------------- |
+| Frontend        | HTML5                   |
+| Styling         | CSS3                    |
+| Client Logic    | JavaScript (ES6)        |
+| Backend         | Supabase                |
+| Database        | PostgreSQL              |
+| Authentication  | Supabase Authentication |
+| Version Control | Git                     |
+| Repository      | GitHub                  |
 
 ---
 

@@ -8,32 +8,32 @@ This document describes all database constraints used to enforce data integrity 
 
 # Primary Keys
 
-| Table | Constraint | Column |
-|--------|------------|--------|
-| coop_profiles | coop_profiles_pkey | id |
-| coop_groups | coop_groups_pkey | id |
-| coop_group_members | coop_group_members_pkey | id |
-| coop_contributions | coop_contributions_pkey | id |
+| Table              | Constraint              | Column |
+| ------------------ | ----------------------- | ------ |
+| coop_profiles      | coop_profiles_pkey      | id     |
+| coop_groups        | coop_groups_pkey        | id     |
+| coop_group_members | coop_group_members_pkey | id     |
+| coop_contributions | coop_contributions_pkey | id     |
 
 ---
 
 # Foreign Keys
 
-| Table | Constraint | References | On Delete |
-|--------|------------|------------|-----------|
-| coop_profiles | coop_profiles_id_fkey | auth.users(id) | CASCADE |
-| coop_groups | coop_groups_created_by_fkey | auth.users(id) | SET NULL |
-| coop_group_members | coop_group_members_group_id_fkey | coop_groups(id) | CASCADE |
-| coop_group_members | coop_group_members_user_id_fkey | auth.users(id) | CASCADE |
-| coop_contributions | coop_contributions_group_id_fkey | coop_groups(id) | CASCADE |
-| coop_contributions | coop_contributions_member_id_fkey | coop_profiles(id) | CASCADE |
+| Table              | Constraint                        | References        | On Delete |
+| ------------------ | --------------------------------- | ----------------- | --------- |
+| coop_profiles      | coop_profiles_id_fkey             | auth.users(id)    | CASCADE   |
+| coop_groups        | coop_groups_created_by_fkey       | auth.users(id)    | SET NULL  |
+| coop_group_members | coop_group_members_group_id_fkey  | coop_groups(id)   | CASCADE   |
+| coop_group_members | coop_group_members_user_id_fkey   | auth.users(id)    | CASCADE   |
+| coop_contributions | coop_contributions_group_id_fkey  | coop_groups(id)   | CASCADE   |
+| coop_contributions | coop_contributions_member_id_fkey | coop_profiles(id) | CASCADE   |
 
 ---
 
 # Unique Constraints
 
-| Table | Constraint | Definition |
-|--------|------------|------------|
+| Table              | Constraint          | Definition          |
+| ------------------ | ------------------- | ------------------- |
 | coop_group_members | unique_group_member | (group_id, user_id) |
 
 This constraint prevents the same user from joining the same cooperative group more than once.
@@ -140,11 +140,11 @@ Prevents invalid contribution round numbers.
 
 The following foreign key columns are mandatory.
 
-| Table | Column |
-|--------|--------|
-| coop_group_members | group_id |
-| coop_group_members | user_id |
-| coop_contributions | group_id |
+| Table              | Column    |
+| ------------------ | --------- |
+| coop_group_members | group_id  |
+| coop_group_members | user_id   |
+| coop_contributions | group_id  |
 | coop_contributions | member_id |
 
 This prevents orphaned relationships and guarantees referential integrity.

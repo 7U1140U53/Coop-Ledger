@@ -105,11 +105,11 @@ The contribution is recorded with a pending verification status until reviewed.
 
 Contribution records may have one of the following statuses.
 
-| Status | Description |
-|--------|-------------|
-| Pending Verification | Awaiting review |
-| Approved | Verified by the group administrator |
-| Rejected | Verification unsuccessful |
+| Status               | Description                         |
+| -------------------- | ----------------------------------- |
+| Pending Verification | Awaiting review                     |
+| Approved             | Verified by the group administrator |
+| Rejected             | Verification unsuccessful           |
 
 ---
 

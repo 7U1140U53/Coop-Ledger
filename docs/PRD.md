@@ -18,19 +18,19 @@
 
 # 1. Document Control
 
-| Item | Value |
-|------|-------|
-| Project | Coop Ledger |
+| Item     | Value                         |
+| -------- | ----------------------------- |
+| Project  | Coop Ledger                   |
 | Document | Product Requirements Document |
-| Version | 1.0 |
-| Status | Stable |
-| Owner | Olakunle Fayemiwo |
+| Version  | 1.0                           |
+| Status   | Stable                        |
+| Owner    | Olakunle Fayemiwo             |
 
 ## Revision History
 
-| Version | Date | Author | Description |
-|----------|------|--------|-------------|
-| 1.0 | July 2026 | Olakunle Fayemiwo | Initial release |
+| Version | Date      | Author            | Description     |
+| ------- | --------- | ----------------- | --------------- |
+| 1.0     | July 2026 | Olakunle Fayemiwo | Initial release |
 
 ---
 
@@ -86,12 +86,12 @@ The objectives of Coop Ledger are to:
 
 The following stakeholders are involved in the development and use of Coop Ledger.
 
-| Stakeholder | Responsibility |
-|-------------|----------------|
-| Cooperative Members | Participate in contribution circles and submit contributions. |
-| Treasurers | Manage cooperative circles, verify contributions, and administer contribution rounds. |
-| System Administrator | Maintain and deploy the application. |
-| Developers | Develop, maintain, and enhance the platform. |
+| Stakeholder          | Responsibility                                                                        |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| Cooperative Members  | Participate in contribution circles and submit contributions.                         |
+| Treasurers           | Manage cooperative circles, verify contributions, and administer contribution rounds. |
+| System Administrator | Maintain and deploy the application.                                                  |
+| Developers           | Develop, maintain, and enhance the platform.                                          |
 
 ---
 
@@ -145,71 +145,70 @@ The following features are intentionally excluded from Version 1.0.0:
 - Multi-language support
 - Two-factor authentication
 
-
 ---
 
 # 9. Functional Requirements
 
 ## Authentication
 
-| ID | Requirement |
-|----|-------------|
-| FR-001 | The system shall allow users to register using a valid email address and password. |
+| ID     | Requirement                                                                                   |
+| ------ | --------------------------------------------------------------------------------------------- |
+| FR-001 | The system shall allow users to register using a valid email address and password.            |
 | FR-002 | The system shall authenticate registered users before granting access to protected resources. |
-| FR-003 | The system shall maintain authenticated user sessions until logout or session expiration. |
+| FR-003 | The system shall maintain authenticated user sessions until logout or session expiration.     |
 
 ---
 
 ## Cooperative Circle Management
 
-| ID | Requirement |
-|----|-------------|
-| FR-004 | The system shall allow Treasurers to create cooperative circles. |
-| FR-005 | The system shall generate invitation links for cooperative circles. |
+| ID     | Requirement                                                                              |
+| ------ | ---------------------------------------------------------------------------------------- |
+| FR-004 | The system shall allow Treasurers to create cooperative circles.                         |
+| FR-005 | The system shall generate invitation links for cooperative circles.                      |
 | FR-006 | The system shall allow users to join cooperative circles through valid invitation links. |
-| FR-007 | The system shall support membership in multiple cooperative circles. |
-| FR-008 | The system shall allow Treasurers to archive completed cooperative circles. |
+| FR-007 | The system shall support membership in multiple cooperative circles.                     |
+| FR-008 | The system shall allow Treasurers to archive completed cooperative circles.              |
 
 ---
 
 ## Contribution Management
 
-| ID | Requirement |
-|----|-------------|
+| ID     | Requirement                                                                     |
+| ------ | ------------------------------------------------------------------------------- |
 | FR-009 | The system shall allow members to submit contribution details for verification. |
-| FR-010 | The system shall maintain contribution records for every submission. |
-| FR-011 | The system shall allow members to view their contribution history. |
-| FR-012 | The system shall display the verification status of each contribution. |
-| FR-013 | The system shall allow rejected contributions to be updated and resubmitted. |
+| FR-010 | The system shall maintain contribution records for every submission.            |
+| FR-011 | The system shall allow members to view their contribution history.              |
+| FR-012 | The system shall display the verification status of each contribution.          |
+| FR-013 | The system shall allow rejected contributions to be updated and resubmitted.    |
 
 ---
 
 ## Treasurer Operations
 
-| ID | Requirement |
-|----|-------------|
-| FR-014 | The system shall allow Treasurers to approve submitted contributions. |
-| FR-015 | The system shall allow Treasurers to reject submitted contributions. |
-| FR-016 | The system shall record the outcome of every verification decision. |
-| FR-017 | The system shall allow Treasurers to advance contribution rounds. |
+| ID     | Requirement                                                                                 |
+| ------ | ------------------------------------------------------------------------------------------- |
+| FR-014 | The system shall allow Treasurers to approve submitted contributions.                       |
+| FR-015 | The system shall allow Treasurers to reject submitted contributions.                        |
+| FR-016 | The system shall record the outcome of every verification decision.                         |
+| FR-017 | The system shall allow Treasurers to advance contribution rounds.                           |
 | FR-018 | The system shall allow Treasurers to force close active contribution rounds when necessary. |
 
 ---
 
 ## User Profile
 
-| ID | Requirement |
-|----|-------------|
-| FR-019 | The system shall allow users to update their display name. |
+| ID     | Requirement                                                                                             |
+| ------ | ------------------------------------------------------------------------------------------------------- |
+| FR-019 | The system shall allow users to update their display name.                                              |
 | FR-020 | The updated display name shall be reflected throughout the application wherever the user is identified. |
 
 ---
 
 ## Audit and Activity Tracking
 
-| ID | Requirement |
-|----|-------------|
-| FR-021 | The system shall maintain an audit log of significant cooperative activities. |
+| ID     | Requirement                                                                               |
+| ------ | ----------------------------------------------------------------------------------------- |
+| FR-021 | The system shall maintain an audit log of significant cooperative activities.             |
 | FR-022 | The system shall record contribution approvals, rejections, and round management actions. |
 
 ---
@@ -218,15 +217,15 @@ The following features are intentionally excluded from Version 1.0.0:
 
 The following non-functional requirements define the quality attributes of Coop Ledger.
 
-| ID | Requirement |
-|----|-------------|
-| NFR-001 | The system shall provide a responsive user interface suitable for desktop and modern web browsers. |
-| NFR-002 | The system shall enforce secure authentication using Supabase Auth. |
-| NFR-003 | The system shall protect sensitive data using Row Level Security (RLS). |
-| NFR-004 | The system shall maintain data integrity for all contribution records. |
-| NFR-005 | The system shall provide consistent navigation across all application screens. |
-| NFR-006 | The system shall provide appropriate feedback for successful and failed user actions. |
-| NFR-007 | The system shall be maintainable through modular JavaScript code and organized project documentation. |
+| ID      | Requirement                                                                                                |
+| ------- | ---------------------------------------------------------------------------------------------------------- |
+| NFR-001 | The system shall provide a responsive user interface suitable for desktop and modern web browsers.         |
+| NFR-002 | The system shall enforce secure authentication using Supabase Auth.                                        |
+| NFR-003 | The system shall protect sensitive data using Row Level Security (RLS).                                    |
+| NFR-004 | The system shall maintain data integrity for all contribution records.                                     |
+| NFR-005 | The system shall provide consistent navigation across all application screens.                             |
+| NFR-006 | The system shall provide appropriate feedback for successful and failed user actions.                      |
+| NFR-007 | The system shall be maintainable through modular JavaScript code and organized project documentation.      |
 | NFR-008 | The system shall support future feature enhancements without requiring significant architectural redesign. |
 
 ---
@@ -235,15 +234,15 @@ The following non-functional requirements define the quality attributes of Coop 
 
 The following business rules govern the operation of Coop Ledger.
 
-| ID | Business Rule |
-|----|---------------|
-| BR-001 | Only authenticated users may access the application. |
-| BR-002 | Only Treasurers may create cooperative circles. |
-| BR-003 | Only Treasurers may verify member contributions. |
-| BR-004 | Members may only submit contributions to circles they belong to. |
-| BR-005 | Rejected contributions may be edited and resubmitted. |
-| BR-006 | Contribution history shall remain available after verification. |
-| BR-007 | Archived cooperative circles become read-only. |
+| ID     | Business Rule                                                              |
+| ------ | -------------------------------------------------------------------------- |
+| BR-001 | Only authenticated users may access the application.                       |
+| BR-002 | Only Treasurers may create cooperative circles.                            |
+| BR-003 | Only Treasurers may verify member contributions.                           |
+| BR-004 | Members may only submit contributions to circles they belong to.           |
+| BR-005 | Rejected contributions may be edited and resubmitted.                      |
+| BR-006 | Contribution history shall remain available after verification.            |
+| BR-007 | Archived cooperative circles become read-only.                             |
 | BR-008 | All significant administrative actions shall be recorded in the audit log. |
 
 ---
@@ -393,9 +392,9 @@ Potential future enhancements include:
 
 # 18. Version History
 
-| Version | Date | Description |
-|----------|------|-------------|
-| 1.0 | July 2026 | Initial stable release of the Product Requirements Document. |
+| Version | Date      | Description                                                  |
+| ------- | --------- | ------------------------------------------------------------ |
+| 1.0     | July 2026 | Initial stable release of the Product Requirements Document. |
 
 ---
 
