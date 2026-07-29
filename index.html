@@ -81,21 +81,43 @@
       >
         <div class="sm:mx-auto sm:w-full sm:max-w-md text-center">
           <span
+            id="auth-mode-badge"
             class="text-xs font-mono px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-widest"
             >Sign In</span
           >
-          <h2 class="mt-4 text-2xl font-black text-white tracking-tight">
+          <h2
+            id="auth-title"
+            class="mt-4 text-2xl font-black text-white tracking-tight"
+          >
             Welcome back
           </h2>
-          <p class="mt-1.5 text-xs text-slate-400">
+
+          <p id="auth-subtitle" class="mt-1.5 text-xs text-slate-400">
             Access your contribution circles.
           </p>
         </div>
 
         <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
           <div
-            class="bg-slate-900 border border-slate-800/80 px-6 py-8 rounded-2xl shadow-xl space-y-5"
+            id="auth-card"
+            class="bg-slate-900 border border-slate-800/80 px-6 py-8 rounded-2xl shadow-xl space-y-5 transition-all duration-300"
           >
+            <div id="auth-name-field" class="hidden">
+              <label
+                for="auth-name"
+                class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-2"
+              >
+                Full Name
+              </label>
+
+              <input
+                id="auth-name"
+                type="text"
+                autocomplete="name"
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-emerald-500/50 transition font-mono text-base sm:text-xs"
+              />
+            </div>
+
             <div>
               <label
                 for="auth-email"
@@ -134,21 +156,28 @@
               />
             </div>
 
-            <div class="grid grid-cols-2 gap-3 pt-2">
+            <div class="space-y-6 pt-5 border-t border-slate-800">
               <button
-                id="btn-login"
+                id="btn-auth-submit"
                 type="button"
-                class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl transition text-xs shadow-md shadow-emerald-900/20"
+                class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-xl transition text-sm shadow-md shadow-emerald-900/20"
               >
-                Sign in
+                Sign In
               </button>
-              <button
-                id="btn-register"
-                type="button"
-                class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2 px-4 rounded-xl transition text-xs border border-slate-700"
-              >
-                Create account
-              </button>
+
+              <div id="auth-switch-panel" class="text-center">
+                <p id="auth-switch-text" class="text-xs text-slate-500">
+                  New to Coop Ledger?
+                </p>
+
+                <button
+                  id="btn-auth-switch"
+                  type="button"
+                  class="mt-2 text-emerald-400 hover:text-emerald-300 text-sm font-semibold transition"
+                >
+                  Create Account
+                </button>
+              </div>
             </div>
           </div>
         </div>

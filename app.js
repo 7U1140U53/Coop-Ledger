@@ -12,6 +12,18 @@ window.supabase = window.supabase.createClient(
 );
 
 // ==========================================================
+// DEBUG UTILITIES
+// ==========================================================
+
+const DEBUG = false;
+
+function debug(...args) {
+  if (DEBUG) {
+    console.log(...args);
+  }
+}
+
+// ==========================================================
 // 2. GLOBAL STATE MATRIX WITH CONTEXT-DRIVEN ROLES
 // ==========================================================
 const urlParams = new URLSearchParams(window.location.search);
@@ -30,33 +42,37 @@ const state = {
     description: "",
   },
   effectiveRole: "MEMBER",
+
+  authMode: "login",
 };
 
 // ==========================================================
 // 3. APPLICATION INITIATION & AUTHENTICATION LISTENERS
 // ==========================================================
 document.addEventListener("DOMContentLoaded", () => {
+  showLoginMode();
+
   initAuthListeners();
   setupFormHandlers();
   setupPasswordToggle();
 });
 
 function resetAuthUI() {
-  const loginBtn = document.getElementById("btn-login");
-  const registerBtn = document.getElementById("btn-register");
+  const submitBtn = document.getElementById("btn-auth-submit");
+  const switchBtn = document.getElementById("btn-auth-switch");
   const emailInput = document.getElementById("auth-email");
   const passwordInput = document.getElementById("auth-password");
 
-  if (loginBtn) {
-    loginBtn.disabled = false;
-    loginBtn.innerText = "Sign In";
-    loginBtn.classList.remove("opacity-50", "cursor-not-allowed");
+  showLoginMode();
+
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.classList.remove("opacity-50", "cursor-not-allowed");
   }
 
-  if (registerBtn) {
-    registerBtn.disabled = false;
-    registerBtn.innerText = "Register";
-    registerBtn.classList.remove("opacity-50", "cursor-not-allowed");
+  if (switchBtn) {
+    switchBtn.disabled = false;
+    switchBtn.classList.remove("opacity-50", "cursor-not-allowed");
   }
 
   if (emailInput) emailInput.value = "";
@@ -65,8 +81,6 @@ function resetAuthUI() {
 
 function initAuthListeners() {
   supabase.auth.onAuthStateChange(async (event, session) => {
-    console.log("Auth Event:", event);
-
     if (session) {
       state.sessionUser = session.user;
 
@@ -79,7 +93,14 @@ function initAuthListeners() {
       state.sessionUser = null;
       state.userProfile = null;
       state.userCirclesList = [];
-      state.currentGroup = {};
+      state.currentGroup = {
+        id: urlGroupId,
+        name: "Select a circle",
+        contributionAmount: 50000,
+        currentRound: 1,
+        createdBy: null,
+        description: "",
+      };
 
       resetAuthUI();
 
@@ -135,18 +156,21 @@ async function syncUserProfileAndGroupRole() {
     // an invite link
     // ------------------------------------------
     if (state.currentGroup.id) {
-      await supabase.from("coop_group_members").upsert(
-        [
+      const { data, error } = await supabase
+        .from("coop_group_members")
+        .upsert(
+          [
+            {
+              group_id: state.currentGroup.id,
+              user_id: state.sessionUser.id,
+            },
+          ],
           {
-            group_id: state.currentGroup.id,
-            user_id: state.sessionUser.id,
+            onConflict: "group_id,user_id",
+            ignoreDuplicates: true,
           },
-        ],
-        {
-          onConflict: "group_id,user_id",
-          ignoreDuplicates: true,
-        },
-      );
+        )
+        .select();
     }
 
     // ------------------------------------------
@@ -154,7 +178,17 @@ async function syncUserProfileAndGroupRole() {
     // ------------------------------------------
     await fetchIsolateWorkspaces();
 
-    if (!state.currentGroup.id && state.userCirclesList.length > 0) {
+    // User has no circles.
+    // Clear any stale invite URL and reset the current group.
+    if (state.userCirclesList.length === 0) {
+      state.currentGroup.id = null;
+      urlGroupId = null;
+
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
+    // User belongs to circles but none is currently selected.
+    else if (!state.currentGroup.id) {
       state.currentGroup.id = state.userCirclesList[0].id;
     }
 
@@ -286,7 +320,29 @@ function renderCirclesHubDeck() {
   if (!grid) return;
 
   if (state.userCirclesList.length === 0) {
-    grid.innerHTML = `<div class="col-span-full text-xs text-slate-500 italic p-2">You haven't joined any circles yet.</div>`;
+    grid.innerHTML = `
+    <div class="col-span-full rounded-2xl border border-dashed border-slate-700 bg-slate-900/30 p-8 text-center">
+        <div class="max-w-md mx-auto space-y-4">
+            <div class="text-3xl">👋</div>
+
+            <h3 class="text-lg font-bold text-white">
+                Welcome to Coop Ledger
+            </h3>
+
+            <p class="text-sm text-slate-400 leading-relaxed">
+                You're not a member of any cooperative circles yet.
+                Create your first circle to get started or join one using an invitation link from another member.
+            </p>
+
+            <button
+                onclick="handleCreateGroupWizard()"
+                class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition"
+            >
+                ➕ Create Your First Circle
+            </button>
+        </div>
+    </div>
+  `;
     return;
   }
 
@@ -482,8 +538,24 @@ async function renderInterfacePanels() {
   const txBankInput = document.getElementById("tx-bank");
 
   if (!state.currentGroup.id) {
-    if (mPanel)
-      mPanel.innerHTML = `<div class="p-6 text-center text-slate-500 italic w-full">Select a circle to view stats.</div>`;
+    if (mPanel) {
+      if (state.userCirclesList.length === 0) {
+        mPanel.innerHTML = `
+        <div class="p-6 rounded-xl border border-dashed border-slate-800 bg-slate-900/20 text-center">
+            <p class="text-sm text-slate-400">
+                Your contribution activity will appear here once you join or create a cooperative circle.
+            </p>
+        </div>
+      `;
+      } else {
+        mPanel.innerHTML = `
+        <div class="p-6 text-center text-slate-500 italic w-full">
+            Select a circle to view your contribution statistics.
+        </div>
+      `;
+      }
+    }
+
     return;
   }
 
@@ -877,10 +949,12 @@ function setupFormHandlers() {
     }
   });
 
-  document.getElementById("btn-login").addEventListener("click", handleLogin);
   document
-    .getElementById("btn-register")
-    .addEventListener("click", handleRegister);
+    .getElementById("btn-auth-submit")
+    .addEventListener("click", handleAuthSubmit);
+  document
+    .getElementById("btn-auth-switch")
+    .addEventListener("click", toggleAuthMode);
   document
     .getElementById("btn-copy-invite")
     .addEventListener("click", copyInviteLink);
@@ -1116,9 +1190,6 @@ async function rejectTransaction(buttonElement, id) {
       .eq("id", id)
       .select();
 
-    console.log("Reject Result:", data);
-    console.log("Reject Error:", error);
-
     if (error) {
       throw error;
     }
@@ -1147,7 +1218,27 @@ function renderGlobalAjoBanner(collectorName, totalPoolValue) {
   if (!container) return;
 
   if (!state.currentGroup.id) {
-    container.innerHTML = `<div class="p-4 rounded-xl border border-dashed border-slate-800 bg-slate-900/40 text-center text-slate-500 text-xs">Choose a circle to start.</div>`;
+    if (state.userCirclesList.length === 0) {
+      container.innerHTML = `
+      <div class="p-5 rounded-xl border border-dashed border-slate-800 bg-slate-900/40 text-center">
+          <h3 class="text-sm font-bold text-white mb-2">
+              Welcome to Coop Ledger
+          </h3>
+
+<p class="text-xs text-slate-400 leading-relaxed">
+    You're not a member of any cooperative circle yet.
+    Create your first circle to get started or join one using an invitation link from another member.
+</p>
+      </div>
+    `;
+    } else {
+      container.innerHTML = `
+      <div class="p-4 rounded-xl border border-dashed border-slate-800 bg-slate-900/40 text-center text-slate-500 text-xs">
+          Choose a circle to start.
+      </div>
+    `;
+    }
+
     return;
   }
 
@@ -1210,7 +1301,6 @@ async function handleLogout() {
     // Do nothing else.
     // initAuthListeners() will receive SIGNED_OUT
     // and reset the application automatically.
-
   } catch (err) {
     console.error("Logout Error:", err);
 
@@ -1274,23 +1364,20 @@ async function handleLogin() {
   const email = document.getElementById("auth-email").value.trim();
   const password = document.getElementById("auth-password").value;
 
-  const loginBtn = document.getElementById("btn-login");
-  const registerBtn = document.getElementById("btn-register");
+  const submitBtn = document.getElementById("btn-auth-submit");
+  const switchBtn = document.getElementById("btn-auth-switch");
 
   if (!email || !password) {
     alert("⚠️ Please fill in all fields.");
     return;
   }
 
-  loginBtn.disabled = true;
-  registerBtn.disabled = true;
+  submitBtn.disabled = true;
+  switchBtn.disabled = true;
 
-  loginBtn.innerText = "Authenticating...";
+  submitBtn.innerText = "Authenticating...";
 
-  loginBtn.classList.add(
-    "opacity-50",
-    "cursor-not-allowed"
-  );
+  submitBtn.classList.add("opacity-50", "cursor-not-allowed");
 
   try {
     const { error } = await supabase.auth.signInWithPassword({
@@ -1306,29 +1393,26 @@ async function handleLogin() {
     // Do NOT touch the UI here.
     // The auth listener will receive SIGNED_IN
     // and transition into the dashboard.
-
   } catch (err) {
     alert("❌ Authentication Failed: " + err.message);
 
-    loginBtn.disabled = false;
-    registerBtn.disabled = false;
+    submitBtn.disabled = false;
+    switchBtn.disabled = false;
 
-    loginBtn.innerText = "Sign In";
+    submitBtn.innerText = "Sign In";
 
-    loginBtn.classList.remove(
-      "opacity-50",
-      "cursor-not-allowed"
-    );
+    submitBtn.classList.remove("opacity-50", "cursor-not-allowed");
   }
 }
 
 async function handleRegister() {
+  const fullName = document.getElementById("auth-name").value.trim();
   const email = document.getElementById("auth-email").value.trim();
   const password = document.getElementById("auth-password").value;
-  const loginBtn = document.getElementById("btn-login");
-  const registerBtn = document.getElementById("btn-register");
+  const submitBtn = document.getElementById("btn-auth-submit");
+  const switchBtn = document.getElementById("btn-auth-switch");
 
-  if (!email || !password) {
+  if (!fullName || !email || !password) {
     alert("⚠️ Please fill in all fields.");
     return;
   }
@@ -1337,27 +1421,97 @@ async function handleRegister() {
     return;
   }
 
-  registerBtn.disabled = true;
-  loginBtn.disabled = true;
-  const originalText = registerBtn.innerText;
-  registerBtn.innerText = "Processing...";
-  registerBtn.classList.add("opacity-50", "cursor-not-allowed");
+  switchBtn.disabled = true;
+  submitBtn.disabled = true;
+  const originalText = switchBtn.innerText;
+  switchBtn.innerText = "Creating Account...";
+  switchBtn.classList.add("opacity-50", "cursor-not-allowed");
 
-  const { error } = await supabase.auth.signUp({ email, password });
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: fullName,
+      },
+    },
+  });
 
   if (error) {
     alert("❌ Registration Failed: " + error.message);
-    loginBtn.disabled = false;
-    registerBtn.disabled = false;
-    registerBtn.innerText = originalText;
-    registerBtn.classList.remove("opacity-50", "cursor-not-allowed");
+    submitBtn.disabled = false;
+    switchBtn.disabled = false;
+    switchBtn.innerText = originalText;
+    switchBtn.classList.remove("opacity-50", "cursor-not-allowed");
   } else {
     alert("🎯 Account setup complete! Logging in...");
-    loginBtn.disabled = false;
-    registerBtn.disabled = false;
-    registerBtn.innerText = originalText;
-    registerBtn.classList.remove("opacity-50", "cursor-not-allowed");
+    document.getElementById("auth-name").value = "";
+    document.getElementById("auth-email").value = "";
+    document.getElementById("auth-password").value = "";
+
+    submitBtn.disabled = false;
+    switchBtn.disabled = false;
+    switchBtn.innerText = originalText;
+    switchBtn.classList.remove("opacity-50", "cursor-not-allowed");
   }
+}
+
+async function handleAuthSubmit() {
+  if (state.authMode === "login") {
+    await handleLogin();
+  } else {
+    await handleRegister();
+  }
+}
+
+function toggleAuthMode() {
+  if (state.authMode === "login") {
+    showRegisterMode();
+  } else {
+    showLoginMode();
+  }
+}
+
+function showLoginMode() {
+  state.authMode = "login";
+
+  document.getElementById("auth-mode-badge").innerText = "Sign In";
+
+  document.getElementById("auth-title").innerText = "Welcome back";
+
+  document.getElementById("auth-subtitle").innerText =
+    "Access your contribution circles.";
+
+  document.getElementById("auth-name-field").classList.add("hidden");
+
+  // Clear the Full Name field whenever we return to Login mode
+  document.getElementById("auth-name").value = "";
+
+  document.getElementById("btn-auth-submit").innerText = "Sign In";
+
+  document.getElementById("auth-switch-text").innerText = "New to Coop Ledger?";
+
+  document.getElementById("btn-auth-switch").innerText = "Create Account";
+}
+
+function showRegisterMode() {
+  state.authMode = "register";
+
+  document.getElementById("auth-mode-badge").innerText = "Create Account";
+
+  document.getElementById("auth-title").innerText = "Create your account";
+
+  document.getElementById("auth-subtitle").innerText =
+    "Join your first contribution circle.";
+
+  document.getElementById("auth-name-field").classList.remove("hidden");
+
+  document.getElementById("btn-auth-submit").innerText = "Create Account";
+
+  document.getElementById("auth-switch-text").innerText =
+    "Already have an account?";
+
+  document.getElementById("btn-auth-switch").innerText = "Back to Sign In";
 }
 
 // ==========================================================
@@ -1406,10 +1560,7 @@ async function handleCreateGroupWizard() {
     return;
   }
 
-  const customAmount = prompt(
-    "Enter the round goal amount (₦):",
-    "50000"
-  );
+  const customAmount = prompt("Enter the round goal amount (₦):", "50000");
 
   // User cancelled the goal amount prompt
   if (customAmount === null) {
